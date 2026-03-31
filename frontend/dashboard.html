@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>My Dashboard — BookMyShow</title>
+  <link rel="stylesheet" href="static/css/style.css" />
+</head>
+<body>
+
+<nav class="navbar" id="navbar"></nav>
+
+<div class="page-wrap">
+  <div class="container" style="padding-top:32px; padding-bottom:80px;">
+
+    <!-- Page Header -->
+    <div class="page-header">
+      <h1 id="page-title">My Dashboard</h1>
+      <p id="page-sub" class="text-muted">Your bookings, history, and account.</p>
+    </div>
+
+    <!-- Stats -->
+    <div class="stats-grid" id="stats-grid">
+      <div class="stat-card">
+        <div class="stat-label">Total Bookings</div>
+        <div class="stat-value" id="stat-total">—</div>
+        <div class="stat-sub">All time</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Confirmed</div>
+        <div class="stat-value" id="stat-confirmed" style="color:var(--green);">—</div>
+        <div class="stat-sub">Paid & attending</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Pending</div>
+        <div class="stat-value" id="stat-pending" style="color:var(--gold);">—</div>
+        <div class="stat-sub">Awaiting payment</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Amount Spent</div>
+        <div class="stat-value" id="stat-spent" style="font-size:1.5rem;">—</div>
+        <div class="stat-sub">On confirmed bookings</div>
+      </div>
+    </div>
+
+    <!-- Filter Tabs -->
+    <div class="tabs" id="booking-tabs">
+      <button class="tab-btn active" data-status="" onclick="filterBookings(this,'')">All</button>
+      <button class="tab-btn" data-status="confirmed" onclick="filterBookings(this,'confirmed')">Confirmed</button>
+      <button class="tab-btn" data-status="pending" onclick="filterBookings(this,'pending')">Pending Payment</button>
+      <button class="tab-btn" data-status="cancelled" onclick="filterBookings(this,'cancelled')">Cancelled</button>
+    </div>
+
+    <!-- Bookings Table -->
+    <div id="bookings-wrap">
+      <div class="page-loader"><div class="loader"></div></div>
+    </div>
+  </div>
+</div>
+
+<!-- Cancel Confirm Modal -->
+<div class="modal-overlay" id="cancel-modal">
+  <div class="modal">
+    <div class="modal-header">
+      <h4>Cancel Booking</h4>
+      <button class="modal-close" onclick="closeModal('cancel-modal')">✕</button>
+    </div>
+    <p style="color:var(--muted);margin-bottom:24px;">Are you sure you want to cancel this booking? If payment was made, a refund will be initiated.</p>
+    <div style="display:flex;gap:12px;">
+      <button class="btn btn-outline" style="flex:1;" onclick="closeModal('cancel-modal')">Keep Booking</button>
+      <button class="btn btn-danger" style="flex:1;" id="confirm-cancel-btn">Yes, Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- Pay Now Modal -->
+<div class="modal-overlay" id="pay-modal">
+  <div class="modal">
+    <div class="modal-header">
+      <h4>Complete Payment</h4>
+      <button class="modal-close" onclick="closeModal('pay-modal')">✕</button>
+    </div>
+    <div id="pay-modal-body"></div>
+  </div>
+</div>
+
+<div class="toast-container" id="toast-container"></div>
+
+<script src="static/js/main.js"></script>
+<script>
+  renderNavbar('dashboard.html');
+  requireLogin();
+
+  const user = Auth.get();
+  if (user) {
+    document.getElementById('page-title').textContent = `Welcome, ${user.full_name.split(' ')[0]} 👋`;
+    document.getElementById('page-sub').textContent = user.role === 'admin' ? 'Admin Dashboard — All bookings visible.' : 'Your booking history and upcoming events.';
+  }
+
+  let allBookings = [];
+  let cancelTargetId = null;
+
+  async function loadBookings() {
+    try {
+      const bookings = await apiFetch('/bookings/my');
+      allBookings = bookings;
+      computeStats(bookings);
+      renderBookings(bookings);
+    } catch (err) {
+      document.getElementById('bookings-wrap').innerHTML = `
+        <div class="empty-state">
+          <div class="empty-state-icon">⚠️</div>
+          <h3>Could not load bookings</h3>
+          <p>${err.message}</p>
+        </div>`;
+    }
+  }
+
+  function computeStats(bookings) {
+    const total = bookings.length;
+    const confirmed = bookings.filter(b => b.booking_status === 'confirmed').length;
+    const pending = bookings.filter(b => b.booking_status === 'pending').length;
+    const spent = bookings.filter(b => b.booking_status === 'confirmed').reduce((s, b) => s + (b.total_amt || 0), 0);
+
+    document.getElementById('stat-total').textContent = total;
+    document.getElementById('stat-confirmed').textContent = confirmed;
+    document.getElementById('stat-pending').textContent = pending;
+    document.getElementById('stat-spent').textContent = fmtCurrency(spent);
+  }
+
+  function filterBookings(btn, status) {
+    document.querySelectorAll('#booking-tabs .tab-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    const filtered = status ? allBookings.filter(b => b.booking_status === status) : allBookings;
+    renderBookings(filtered);
+  }
+
+  function renderBookings(bookings) {
+    const wrap = document.getElementById('bookings-wrap');
+
+    if (!bookings.length) {
+      wrap.innerHTML = `
+        <div class="empty-state">
+          <div class="empty-state-icon">🎟</div>
+          <h3>No bookings found</h3>
+          <p>Browse upcoming events and book your first experience!</p>
+          <a href="events.html" class="btn btn-gold btn-sm" style="margin-top:12px;">Browse Events</a>
+        </div>`;
+      return;
+    }
+
+    wrap.innerHTML = `
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Event</th>
+              <th>Date</th>
+              <th>Venue</th>
+              <th>Amount</th>
+              <th>Status</th>
+              <th>Payment</th>
+              <th>Booked On</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${bookings.map(b => `
+              <tr>
+                <td style="color:var(--muted);font-size:0.78rem;">#${b.booking_id}</td>
+                <td>
+                  <a href="event-detail.html?id=${b.event_id || ''}" style="color:var(--text);font-weight:600;font-size:0.9rem;">${b.event_title || '—'}</a>
+                </td>
+                <td style="font-size:0.82rem;color:var(--muted);">${fmtDateShort(b.start_datetime)}</td>
+                <td style="font-size:0.82rem;color:var(--muted);">${b.venue_name || '—'}<br><span style="font-size:0.75rem;">${b.city_name || ''}</span></td>
+                <td><strong style="color:var(--gold);font-family:'Playfair Display',serif;">${fmtCurrency(b.total_amt)}</strong></td>
+                <td>${statusPill(b.booking_status)}</td>
+                <td>
+                  ${b.payment_status ? statusPill(b.payment_status) : '<span class="text-muted text-sm">—</span>'}
+                  ${b.payment_method ? `<br><span style="font-size:0.72rem;color:var(--muted);">${b.payment_method}</span>` : ''}
+                </td>
+                <td style="font-size:0.78rem;color:var(--muted);">${fmtDateShort(b.booking_datetime)}</td>
+                <td>
+                  <div style="display:flex;gap:6px;flex-wrap:wrap;">
+                    ${b.booking_status === 'pending' ? `
+                      <button class="btn btn-gold btn-sm" onclick="openPayModal(${b.booking_id}, ${b.total_amt})">Pay Now</button>
+                      <button class="btn btn-danger btn-sm" onclick="openCancelModal(${b.booking_id})">Cancel</button>
+                    ` : ''}
+                    ${b.booking_status === 'confirmed' ? `
+                      <button class="btn btn-outline btn-sm" onclick="openCancelModal(${b.booking_id})">Cancel</button>
+                    ` : ''}
+                    ${b.booking_status === 'cancelled' || b.booking_status === 'refunded' ? `
+                      <span class="text-muted text-xs">—</span>
+                    ` : ''}
+                  </div>
+                </td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      </div>
+    `;
+  }
+
+  function openCancelModal(bookingId) {
+    cancelTargetId = bookingId;
+    document.getElementById('confirm-cancel-btn').onclick = () => cancelBooking(bookingId);
+    openModal('cancel-modal');
+  }
+
+  async function cancelBooking(bookingId) {
+    const btn = document.getElementById('confirm-cancel-btn');
+    btn.innerHTML = '<span class="loader"></span>';
+    btn.disabled = true;
+
+    try {
+      await apiFetch(`/bookings/${bookingId}/cancel`, { method: 'POST' });
+      showToast('Booking cancelled successfully.', 'success');
+      closeModal('cancel-modal');
+      loadBookings();
+    } catch (err) {
+      showToast(err.message, 'error');
+    }
+
+    btn.innerHTML = 'Yes, Cancel';
+    btn.disabled = false;
+  }
+
+  function openPayModal(bookingId, amount) {
+    document.getElementById('pay-modal-body').innerHTML = `
+      <p class="text-muted text-sm" style="margin-bottom:20px;">Booking #${bookingId} · <strong style="color:var(--gold)">${fmtCurrency(amount)}</strong></p>
+      <p style="font-size:0.82rem;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:0.07em;margin-bottom:12px;">Payment Method</p>
+      <div class="payment-methods">
+        ${[['upi','💳','UPI'],['credit_card','💎','Credit Card'],['debit_card','🏦','Debit Card'],['net_banking','🌐','Net Banking'],['wallet','👛','Wallet'],['cash','💵','Cash']].map(([val,icon,label]) => `
+          <div class="payment-method-card ${val==='upi'?'selected':''}" data-pm="${val}" onclick="this.closest('.payment-methods').querySelectorAll('.payment-method-card').forEach(x=>x.classList.remove('selected'));this.classList.add('selected');">
+            <div class="pm-icon">${icon}</div>
+            <div class="pm-label">${label}</div>
+          </div>
+        `).join('')}
+      </div>
+      <button class="btn btn-gold btn-full btn-lg" style="margin-top:20px;" id="pay-now-btn" onclick="processPaymentDash(${bookingId}, ${amount})">
+        Pay ${fmtCurrency(amount)}
+      </button>
+    `;
+    openModal('pay-modal');
+  }
+
+  async function processPaymentDash(bookingId, amount) {
+    const pm = document.querySelector('#pay-modal .payment-method-card.selected')?.dataset.pm || 'upi';
+    const btn = document.getElementById('pay-now-btn');
+    btn.innerHTML = '<span class="loader"></span> Processing...';
+    btn.disabled = true;
+
+    try {
+      await apiFetch('/payments/confirm', {
+        method: 'POST',
+        body: JSON.stringify({ booking_id: bookingId, payment_method: pm })
+      });
+      showToast('Payment confirmed! Booking is now active.', 'success');
+      closeModal('pay-modal');
+      loadBookings();
+    } catch (err) {
+      showToast(err.message, 'error');
+      btn.innerHTML = `Pay ${fmtCurrency(amount)}`;
+      btn.disabled = false;
+    }
+  }
+
+  loadBookings();
+</script>
+</body>
+</html>

@@ -1,0 +1,476 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Event Details — BookMyShow</title>
+  <link rel="stylesheet" href="static/css/style.css" />
+</head>
+<body>
+
+<nav class="navbar" id="navbar"></nav>
+
+<div class="page-wrap">
+  <div class="container" style="padding-top:32px; padding-bottom:80px;">
+
+    <!-- Breadcrumb -->
+    <div class="breadcrumb">
+      <a href="events.html">Events</a>
+      <span class="breadcrumb-sep">›</span>
+      <span id="bc-title">Loading...</span>
+    </div>
+
+    <!-- Page Loader -->
+    <div id="page-loader" class="page-loader"><div class="loader"></div></div>
+
+    <!-- Main Content -->
+    <div id="page-content" class="event-detail-grid page-content" style="display:none;">
+
+      <!-- Left Column -->
+      <div>
+        <!-- Hero Banner -->
+        <div class="event-hero-banner" id="event-banner">
+          <span class="event-hero-icon" id="event-banner-icon">🎟</span>
+        </div>
+
+        <!-- Event Info -->
+        <div class="event-info-block">
+          <div class="event-badges" id="event-badges"></div>
+          <h2 id="event-title">—</h2>
+          <div class="detail-list" id="event-details"></div>
+        </div>
+
+        <!-- Tabs -->
+        <div class="tabs">
+          <button class="tab-btn active" onclick="switchTab('about')">About</button>
+          <button class="tab-btn" onclick="switchTab('reviews')">Reviews <span id="review-count-tab" style="color:var(--muted);font-size:0.8rem;"></span></button>
+        </div>
+
+        <div id="tab-about" class="tab-panel active">
+          <p id="event-description" class="event-description">No description provided.</p>
+        </div>
+
+        <div id="tab-reviews" class="tab-panel">
+          <div id="reviews-section"></div>
+
+          <!-- Submit Review Form (shown only if user has confirmed booking) -->
+          <div id="review-form-wrap" style="display:none; margin-top:28px;">
+            <div class="divider"></div>
+            <h4 style="margin-bottom:16px; font-size:1rem;">Write a Review</h4>
+            <div class="form-group">
+              <label class="form-label">Your Rating</label>
+              <div id="star-picker" style="display:flex;gap:6px;font-size:1.6rem;margin-bottom:4px;">
+                <span class="star-pick" data-val="1" style="cursor:pointer;color:var(--muted);">★</span>
+                <span class="star-pick" data-val="2" style="cursor:pointer;color:var(--muted);">★</span>
+                <span class="star-pick" data-val="3" style="cursor:pointer;color:var(--muted);">★</span>
+                <span class="star-pick" data-val="4" style="cursor:pointer;color:var(--muted);">★</span>
+                <span class="star-pick" data-val="5" style="cursor:pointer;color:var(--muted);">★</span>
+              </div>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Comment (optional)</label>
+              <textarea id="review-comment" class="form-textarea" placeholder="Share your experience..."></textarea>
+            </div>
+            <button class="btn btn-gold" onclick="submitReview()">Submit Review</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Right Column — Booking Sidebar -->
+      <div class="booking-sidebar">
+        <h3>Book Tickets</h3>
+
+        <div id="tickets-section">
+          <div class="page-loader"><div class="loader"></div></div>
+        </div>
+
+        <div id="booking-controls" style="display:none;">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+            <span style="font-size:0.82rem;color:var(--muted);">Quantity</span>
+          </div>
+          <div class="qty-control">
+            <button class="qty-btn" onclick="changeQty(-1)">−</button>
+            <span class="qty-value" id="qty-display">1</span>
+            <button class="qty-btn" onclick="changeQty(1)">+</button>
+          </div>
+
+          <div class="booking-summary">
+            <div class="summary-row"><span>Ticket type</span><span id="summary-type">—</span></div>
+            <div class="summary-row"><span>Price each</span><span id="summary-price">—</span></div>
+            <div class="summary-row"><span>Quantity</span><span id="summary-qty">1</span></div>
+            <div class="summary-row total"><span>Total</span><span id="summary-total">—</span></div>
+          </div>
+
+          <button class="btn btn-gold btn-full btn-lg" id="book-btn" onclick="proceedBooking()">
+            Proceed to Book
+          </button>
+          <p style="text-align:center;font-size:0.75rem;color:var(--muted);margin-top:10px;">Secure checkout · Instant confirmation</p>
+        </div>
+
+        <div id="no-tickets-msg" style="display:none;">
+          <div class="empty-state" style="padding:32px 0;">
+            <div class="empty-state-icon">🎫</div>
+            <h3>No tickets available</h3>
+            <p>All tickets for this event have been sold out.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Booking Confirm Modal -->
+<div class="modal-overlay" id="booking-modal">
+  <div class="modal">
+    <div class="modal-header">
+      <h4>Confirm Your Booking</h4>
+      <button class="modal-close" onclick="closeModal('booking-modal')">✕</button>
+    </div>
+    <div id="booking-modal-body"></div>
+    <div style="margin-top:24px; display:flex;gap:12px;">
+      <button class="btn btn-outline" style="flex:1;" onclick="closeModal('booking-modal')">Cancel</button>
+      <button class="btn btn-gold" style="flex:1;" id="confirm-book-btn" onclick="confirmBooking()">Confirm & Pay</button>
+    </div>
+  </div>
+</div>
+
+<!-- Payment Modal -->
+<div class="modal-overlay" id="payment-modal">
+  <div class="modal">
+    <div class="modal-header">
+      <h4>Complete Payment</h4>
+      <button class="modal-close" onclick="closeModal('payment-modal')">✕</button>
+    </div>
+    <div id="payment-modal-body"></div>
+  </div>
+</div>
+
+<div class="toast-container" id="toast-container"></div>
+
+<script src="static/js/main.js"></script>
+<script>
+  renderNavbar('events.html');
+
+  const params = new URLSearchParams(window.location.search);
+  const eventId = params.get('id');
+  if (!eventId) window.location.href = 'events.html';
+
+  let selectedTicket = null;
+  let qty = 1;
+  let selectedRating = 0;
+  let currentBookingId = null;
+
+  async function loadEvent() {
+    try {
+      const event = await apiFetch(`/events/${eventId}`);
+      const loader = document.getElementById('page-loader');
+      const content = document.getElementById('page-content');
+
+      loader.style.display = 'none';
+      content.style.display = 'grid';
+
+      // Breadcrumb
+      document.getElementById('bc-title').textContent = event.title;
+      document.title = event.title + ' — BookMyShow';
+
+      // Banner
+      document.getElementById('event-banner-icon').textContent = categoryEmoji(event.category_name);
+
+      // Title
+      document.getElementById('event-title').textContent = event.title;
+
+      // Badges
+      const badgesEl = document.getElementById('event-badges');
+      badgesEl.innerHTML = `
+        <span class="badge badge-gold">${event.category_name || 'Event'}</span>
+        <span class="badge ${event.status === 'upcoming' ? 'badge-green' : 'badge-muted'}">${event.status}</span>
+        ${event.avg_rating ? `<span class="badge badge-gold">★ ${Number(event.avg_rating).toFixed(1)} (${event.total_reviews})</span>` : ''}
+      `;
+
+      // Details list
+      document.getElementById('event-details').innerHTML = `
+        <div class="detail-item">
+          <div class="detail-item-icon">📅</div>
+          <div><div class="detail-item-label">Date & Time</div><div class="detail-item-value">${fmtDate(event.start_datetime)}</div></div>
+        </div>
+        <div class="detail-item">
+          <div class="detail-item-icon">🏛</div>
+          <div><div class="detail-item-label">Venue</div><div class="detail-item-value">${event.venue_name || '—'}</div></div>
+        </div>
+        <div class="detail-item">
+          <div class="detail-item-icon">📍</div>
+          <div><div class="detail-item-label">Location</div><div class="detail-item-value">${event.city_name || '—'}, ${event.state || '—'}</div></div>
+        </div>
+        <div class="detail-item">
+          <div class="detail-item-icon">🎤</div>
+          <div><div class="detail-item-label">Organizer</div><div class="detail-item-value">${event.organizer_name || '—'}</div></div>
+        </div>
+        ${event.capacity ? `<div class="detail-item"><div class="detail-item-icon">👥</div><div><div class="detail-item-label">Capacity</div><div class="detail-item-value">${event.capacity.toLocaleString()} seats</div></div></div>` : ''}
+      `;
+
+      // Description
+      document.getElementById('event-description').textContent = event.description || 'No description available for this event.';
+
+    } catch (err) {
+      document.getElementById('page-loader').innerHTML = `<div class="empty-state"><div class="empty-state-icon">⚠️</div><h3>Event not found</h3><p>${err.message}</p><a href="events.html" class="btn btn-outline btn-sm">Back to Events</a></div>`;
+    }
+  }
+
+  async function loadTickets() {
+    try {
+      const tickets = await apiFetch(`/events/${eventId}/tickets`);
+      const sec = document.getElementById('tickets-section');
+
+      if (!tickets.length) {
+        sec.innerHTML = '';
+        document.getElementById('no-tickets-msg').style.display = 'block';
+        return;
+      }
+
+      sec.innerHTML = tickets.map(t => `
+        <div class="ticket-option" id="ticket-${t.ticket_type_id}" onclick="selectTicket(${t.ticket_type_id}, '${t.type_name}', ${t.price}, ${t.available_quantity})">
+          <div class="ticket-option-name">${t.type_name}</div>
+          <div class="ticket-option-meta">
+            <span>${t.available_quantity} left</span>
+            <span class="ticket-option-price">${fmtCurrency(t.price)}</span>
+          </div>
+          ${t.available_quantity === 0 ? '<div style="font-size:0.72rem;color:var(--red);margin-top:4px;">Sold out</div>' : ''}
+        </div>
+      `).join('');
+
+      // Auto-select first available
+      const first = tickets.find(t => t.available_quantity > 0);
+      if (first) selectTicket(first.ticket_type_id, first.type_name, first.price, first.available_quantity);
+
+    } catch (err) {
+      document.getElementById('tickets-section').innerHTML = `<p class="text-muted text-sm">Could not load tickets.</p>`;
+    }
+  }
+
+  function selectTicket(id, name, price, avail) {
+    if (avail === 0) return;
+    document.querySelectorAll('.ticket-option').forEach(el => el.classList.remove('selected'));
+    document.getElementById(`ticket-${id}`)?.classList.add('selected');
+    selectedTicket = { id, name, price, avail };
+    qty = 1;
+    document.getElementById('booking-controls').style.display = 'block';
+    updateSummary();
+  }
+
+  function changeQty(delta) {
+    if (!selectedTicket) return;
+    qty = Math.max(1, Math.min(selectedTicket.avail, qty + delta));
+    updateSummary();
+  }
+
+  function updateSummary() {
+    if (!selectedTicket) return;
+    document.getElementById('qty-display').textContent = qty;
+    document.getElementById('summary-type').textContent = selectedTicket.name;
+    document.getElementById('summary-price').textContent = fmtCurrency(selectedTicket.price);
+    document.getElementById('summary-qty').textContent = qty;
+    document.getElementById('summary-total').textContent = fmtCurrency(selectedTicket.price * qty);
+  }
+
+  function proceedBooking() {
+    if (!Auth.isLoggedIn()) {
+      showToast('Please login to book tickets', 'info');
+      setTimeout(() => window.location.href = 'login.html', 1000);
+      return;
+    }
+    if (!selectedTicket) { showToast('Please select a ticket type', 'info'); return; }
+
+    const eventTitle = document.getElementById('event-title').textContent;
+    document.getElementById('booking-modal-body').innerHTML = `
+      <div style="background:var(--bg3);border-radius:12px;padding:18px;margin-bottom:4px;">
+        <div class="summary-row"><span class="text-muted text-sm">Event</span><span style="font-weight:600;text-align:right;max-width:200px;">${eventTitle}</span></div>
+        <div class="summary-row"><span class="text-muted text-sm">Ticket</span><span>${selectedTicket.name}</span></div>
+        <div class="summary-row"><span class="text-muted text-sm">Quantity</span><span>${qty}</span></div>
+        <div class="summary-row" style="border-top:1px solid var(--border);padding-top:10px;margin-top:8px;font-weight:600;">
+          <span>Total Amount</span>
+          <span style="color:var(--gold);font-family:'Playfair Display',serif;font-size:1.2rem;">${fmtCurrency(selectedTicket.price * qty)}</span>
+        </div>
+      </div>
+    `;
+    openModal('booking-modal');
+  }
+
+  async function confirmBooking() {
+    const btn = document.getElementById('confirm-book-btn');
+    btn.innerHTML = '<span class="loader"></span> Creating booking...';
+    btn.disabled = true;
+
+    try {
+      const result = await apiFetch('/bookings/create', {
+        method: 'POST',
+        body: JSON.stringify({ event_id: Number(eventId), ticket_type_id: selectedTicket.id, quantity: qty })
+      });
+
+      currentBookingId = result.booking_id;
+      closeModal('booking-modal');
+      showPaymentModal(result);
+    } catch (err) {
+      showToast(err.message, 'error');
+    }
+
+    btn.innerHTML = 'Confirm & Pay';
+    btn.disabled = false;
+  }
+
+  function showPaymentModal(bookingResult) {
+    let selectedPayment = 'upi';
+    document.getElementById('payment-modal-body').innerHTML = `
+      <p class="text-muted text-sm" style="margin-bottom:20px;">Booking #${bookingResult.booking_id} · Total: <strong style="color:var(--gold)">${fmtCurrency(bookingResult.total_amt)}</strong></p>
+      <p style="font-size:0.82rem;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:0.07em;margin-bottom:12px;">Select Payment Method</p>
+      <div class="payment-methods" id="pm-grid">
+        ${[['upi','💳','UPI'],['credit_card','💎','Credit Card'],['debit_card','🏦','Debit Card'],['net_banking','🌐','Net Banking'],['wallet','👛','Wallet'],['cash','💵','Cash']].map(([val,icon,label]) => `
+          <div class="payment-method-card ${val==='upi'?'selected':''}" data-pm="${val}" onclick="selectPM('${val}')">
+            <div class="pm-icon">${icon}</div>
+            <div class="pm-label">${label}</div>
+          </div>
+        `).join('')}
+      </div>
+      <button class="btn btn-gold btn-full btn-lg" style="margin-top:20px;" id="pay-btn" onclick="processPayment(${bookingResult.booking_id})">
+        Pay ${fmtCurrency(bookingResult.total_amt)}
+      </button>
+      <p style="text-align:center;font-size:0.72rem;color:var(--muted);margin-top:10px;">🔒 256-bit SSL encrypted · Demo mode</p>
+    `;
+    openModal('payment-modal');
+  }
+
+  function selectPM(val) {
+    document.querySelectorAll('.payment-method-card').forEach(el => el.classList.remove('selected'));
+    document.querySelector(`.payment-method-card[data-pm="${val}"]`)?.classList.add('selected');
+  }
+
+  async function processPayment(bookingId) {
+    const pm = document.querySelector('.payment-method-card.selected')?.dataset.pm || 'upi';
+    const btn = document.getElementById('pay-btn');
+    btn.innerHTML = '<span class="loader"></span> Processing...';
+    btn.disabled = true;
+
+    try {
+      const result = await apiFetch('/payments/confirm', {
+        method: 'POST',
+        body: JSON.stringify({ booking_id: bookingId, payment_method: pm })
+      });
+
+      closeModal('payment-modal');
+      showSuccessModal(bookingId, result.transaction_ref);
+    } catch (err) {
+      showToast(err.message, 'error');
+      btn.innerHTML = 'Retry Payment';
+      btn.disabled = false;
+    }
+  }
+
+  function showSuccessModal(bookingId, txRef) {
+    // Reuse booking modal
+    document.querySelector('#booking-modal .modal-header h4').textContent = 'Booking Confirmed! 🎉';
+    document.querySelector('#booking-modal .modal-header .modal-close').onclick = () => { closeModal('booking-modal'); loadTickets(); };
+    document.getElementById('booking-modal-body').innerHTML = `
+      <div class="success-checkmark">✓</div>
+      <p style="text-align:center;font-size:1.1rem;font-weight:600;margin-bottom:8px;">You're all set!</p>
+      <p class="text-muted text-sm text-center" style="margin-bottom:20px;">Your tickets have been confirmed.</p>
+      <div style="background:var(--bg3);border-radius:10px;padding:16px;font-size:0.85rem;">
+        <div class="summary-row"><span class="text-muted">Booking ID</span><span>#${bookingId}</span></div>
+        <div class="summary-row"><span class="text-muted">Transaction</span><span style="font-size:0.78rem;">${txRef}</span></div>
+      </div>
+    `;
+    document.querySelector('#booking-modal > div > div:last-child').innerHTML = `
+      <a href="dashboard.html" class="btn btn-gold" style="flex:1;display:flex;align-items:center;justify-content:center;">View My Bookings</a>
+    `;
+    openModal('booking-modal');
+  }
+
+  /* ── Tabs ─────────────────────────────────────────────────── */
+  function switchTab(tab) {
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+    event.target.classList.add('active');
+    document.getElementById(`tab-${tab}`).classList.add('active');
+    if (tab === 'reviews') loadReviews();
+  }
+
+  async function loadReviews() {
+    const sec = document.getElementById('reviews-section');
+    sec.innerHTML = '<div class="page-loader"><div class="loader"></div></div>';
+
+    try {
+      const data = await apiFetch(`/reviews/${eventId}`);
+      document.getElementById('review-count-tab').textContent = data.total_reviews ? `(${data.total_reviews})` : '';
+
+      let html = '';
+
+      if (data.avg_rating) {
+        html += `
+          <div class="rating-display">
+            <div class="rating-big">${Number(data.avg_rating).toFixed(1)}</div>
+            <div>
+              ${renderStars(Math.round(data.avg_rating))}
+              <div class="text-muted text-sm">${data.total_reviews} review${data.total_reviews !== 1 ? 's' : ''}</div>
+            </div>
+          </div>
+        `;
+      }
+
+      if (!data.reviews.length) {
+        html += `<div class="empty-state" style="padding:32px 0;"><div class="empty-state-icon">💬</div><h3>No reviews yet</h3><p>Be the first to review this event.</p></div>`;
+      } else {
+        html += data.reviews.map(r => `
+          <div class="review-card">
+            <div class="review-header">
+              <div>
+                <div class="reviewer-name">${r.reviewer_name}</div>
+                <div>${renderStars(r.rating)}</div>
+              </div>
+              <div class="review-date">${fmtDateShort(r.reviewed_at)}</div>
+            </div>
+            ${r.comment ? `<div class="review-body">${r.comment}</div>` : ''}
+          </div>
+        `).join('');
+      }
+
+      sec.innerHTML = html;
+
+      // Show review form if user has confirmed booking
+      if (Auth.isLoggedIn()) {
+        document.getElementById('review-form-wrap').style.display = 'block';
+      }
+    } catch (err) {
+      sec.innerHTML = `<p class="text-muted text-sm">Could not load reviews.</p>`;
+    }
+  }
+
+  // Star picker
+  document.addEventListener('click', (e) => {
+    if (e.target.classList.contains('star-pick')) {
+      selectedRating = Number(e.target.dataset.val);
+      document.querySelectorAll('.star-pick').forEach(s => {
+        s.style.color = Number(s.dataset.val) <= selectedRating ? 'var(--gold)' : 'var(--muted)';
+      });
+    }
+  });
+
+  async function submitReview() {
+    if (!selectedRating) { showToast('Please select a rating', 'info'); return; }
+    const comment = document.getElementById('review-comment').value.trim();
+    try {
+      await apiFetch('/reviews/submit', {
+        method: 'POST',
+        body: JSON.stringify({ event_id: Number(eventId), rating: selectedRating, comment })
+      });
+      showToast('Review submitted!', 'success');
+      document.getElementById('review-form-wrap').style.display = 'none';
+      loadReviews();
+    } catch (err) {
+      showToast(err.message, 'error');
+    }
+  }
+
+  // Init
+  loadEvent();
+  loadTickets();
+</script>
+</body>
+</html>

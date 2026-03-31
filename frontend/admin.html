@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Admin Panel — BookMyShow</title>
+  <link rel="stylesheet" href="static/css/style.css" />
+</head>
+<body>
+
+<nav class="navbar" id="navbar"></nav>
+
+<div class="page-wrap">
+  <div class="container" style="padding-top:32px; padding-bottom:80px;">
+
+    <div class="page-header">
+      <div style="display:flex;align-items:center;gap:12px;">
+        <span style="font-size:1.8rem;">🛡</span>
+        <div>
+          <h1>Admin Panel</h1>
+          <p class="text-muted">Manage bookings, payments and events.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Admin Tabs -->
+    <div class="tabs">
+      <button class="tab-btn active" onclick="switchAdminTab(this,'all-bookings')">All Bookings</button>
+      <button class="tab-btn" onclick="switchAdminTab(this,'all-payments')">All Payments</button>
+      <button class="tab-btn" onclick="switchAdminTab(this,'all-events')">Events &amp; Revenue</button>
+    </div>
+
+    <!-- All Bookings -->
+    <div id="tab-all-bookings" class="tab-panel active">
+      <div class="section-header">
+        <h2>All Bookings</h2>
+        <button class="btn btn-outline btn-sm" onclick="loadAllBookings()">↻ Refresh</button>
+      </div>
+      <div id="all-bookings-content">
+        <div class="page-loader"><div class="loader"></div></div>
+      </div>
+    </div>
+
+    <!-- All Payments -->
+    <div id="tab-all-payments" class="tab-panel">
+      <div class="section-header">
+        <h2>All Payments</h2>
+        <button class="btn btn-outline btn-sm" onclick="loadAllPayments()">↻ Refresh</button>
+      </div>
+      <div id="all-payments-content">
+        <div class="page-loader"><div class="loader"></div></div>
+      </div>
+    </div>
+
+    <!-- Events Revenue -->
+    <div id="tab-all-events" class="tab-panel">
+      <div class="section-header">
+        <h2>Events &amp; Revenue</h2>
+        <button class="btn btn-outline btn-sm" onclick="loadAllEvents()">↻ Refresh</button>
+      </div>
+      <div id="all-events-content">
+        <div class="page-loader"><div class="loader"></div></div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<div class="toast-container" id="toast-container"></div>
+
+<script src="static/js/main.js"></script>
+<script>
+  renderNavbar('admin.html');
+
+  // Guard: admin only
+  const user = Auth.get();
+  if (!user || user.role !== 'admin') {
+    showToast('Admin access required.', 'error');
+    setTimeout(() => window.location.href = 'events.html', 1000);
+  }
+
+  function switchAdminTab(btn, tabId) {
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById(`tab-${tabId}`).classList.add('active');
+
+    if (tabId === 'all-bookings') loadAllBookings();
+    if (tabId === 'all-payments') loadAllPayments();
+    if (tabId === 'all-events') loadAllEvents();
+  }
+
+  async function loadAllBookings() {
+    const wrap = document.getElementById('all-bookings-content');
+    wrap.innerHTML = '<div class="page-loader"><div class="loader"></div></div>';
+    try {
+      const bookings = await apiFetch('/bookings/summary');
+      if (!bookings.length) {
+        wrap.innerHTML = `<div class="empty-state"><div class="empty-state-icon">📋</div><h3>No bookings yet</h3></div>`;
+        return;
+      }
+
+      // Summary stats
+      const total = bookings.length;
+      const confirmed = bookings.filter(b => b.booking_status === 'confirmed').length;
+      const pending = bookings.filter(b => b.booking_status === 'pending').length;
+      const revenue = bookings.filter(b => b.payment_status === 'completed').reduce((s,b) => s + (b.total_amt||0), 0);
+
+      wrap.innerHTML = `
+        <div class="stats-grid" style="margin-bottom:28px;">
+          <div class="stat-card"><div class="stat-label">Total Bookings</div><div class="stat-value">${total}</div></div>
+          <div class="stat-card"><div class="stat-label">Confirmed</div><div class="stat-value" style="color:var(--green);">${confirmed}</div></div>
+          <div class="stat-card"><div class="stat-label">Pending Payment</div><div class="stat-value" style="color:var(--gold);">${pending}</div></div>
+          <div class="stat-card"><div class="stat-label">Total Revenue</div><div class="stat-value" style="font-size:1.4rem;">${fmtCurrency(revenue)}</div></div>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Booking #</th>
+                <th>Customer</th>
+                <th>Event</th>
+                <th>Venue</th>
+                <th>Amount</th>
+                <th>Booking Status</th>
+                <th>Payment</th>
+                <th>Method</th>
+                <th>Booked</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${bookings.map(b => `
+                <tr>
+                  <td style="color:var(--muted);font-size:0.78rem;">#${b.booking_id}</td>
+                  <td>
+                    <div style="font-weight:600;font-size:0.88rem;">${b.customer_name || '—'}</div>
+                    <div style="font-size:0.75rem;color:var(--muted);">${b.customer_email || ''}</div>
+                  </td>
+                  <td style="font-weight:500;font-size:0.88rem;max-width:180px;">${b.event_title || '—'}</td>
+                  <td style="font-size:0.82rem;color:var(--muted);">${b.venue_name || '—'}<br><span style="font-size:0.75rem;">${b.city_name||''}</span></td>
+                  <td><strong style="color:var(--gold);font-family:'Playfair Display',serif;">${fmtCurrency(b.total_amt)}</strong></td>
+                  <td>${statusPill(b.booking_status)}</td>
+                  <td>${b.payment_status ? statusPill(b.payment_status) : '<span class="text-muted text-xs">—</span>'}</td>
+                  <td style="font-size:0.78rem;color:var(--muted);">${b.payment_method || '—'}</td>
+                  <td style="font-size:0.78rem;color:var(--muted);">${fmtDateShort(b.booking_datetime)}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </div>
+      `;
+    } catch (err) {
+      wrap.innerHTML = `<div class="empty-state"><div class="empty-state-icon">⚠️</div><h3>Error</h3><p>${err.message}</p></div>`;
+    }
+  }
+
+  async function loadAllPayments() {
+    const wrap = document.getElementById('all-payments-content');
+    wrap.innerHTML = '<div class="page-loader"><div class="loader"></div></div>';
+    try {
+      const payments = await apiFetch('/payments/all');
+      if (!payments.length) {
+        wrap.innerHTML = `<div class="empty-state"><div class="empty-state-icon">💳</div><h3>No payments yet</h3></div>`;
+        return;
+      }
+
+      const totalRevenue = payments.filter(p => p.payment_status === 'completed').reduce((s,p) => s + (p.paid_amt||0), 0);
+      const refunds = payments.filter(p => p.payment_status === 'refunded').reduce((s,p) => s + (p.paid_amt||0), 0);
+
+      wrap.innerHTML = `
+        <div class="stats-grid" style="margin-bottom:28px;">
+          <div class="stat-card"><div class="stat-label">Total Transactions</div><div class="stat-value">${payments.length}</div></div>
+          <div class="stat-card"><div class="stat-label">Completed</div><div class="stat-value" style="color:var(--green);">${payments.filter(p=>p.payment_status==='completed').length}</div></div>
+          <div class="stat-card"><div class="stat-label">Refunded</div><div class="stat-value" style="color:var(--red);">${payments.filter(p=>p.payment_status==='refunded').length}</div></div>
+          <div class="stat-card"><div class="stat-label">Net Revenue</div><div class="stat-value" style="font-size:1.4rem;">${fmtCurrency(totalRevenue - refunds)}</div></div>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Transaction Ref</th>
+                <th>Customer</th>
+                <th>Event</th>
+                <th>Method</th>
+                <th>Amount</th>
+                <th>Status</th>
+                <th>Date</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${payments.map(p => `
+                <tr>
+                  <td style="font-size:0.75rem;color:var(--muted);font-family:monospace;">${p.transaction_ref || '—'}</td>
+                  <td style="font-size:0.88rem;font-weight:500;">${p.customer_name || '—'}</td>
+                  <td style="font-size:0.82rem;color:var(--muted);max-width:160px;">${p.event_title || '—'}</td>
+                  <td>
+                    <span style="background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:3px 8px;font-size:0.75rem;">
+                      ${p.payment_method || '—'}
+                    </span>
+                  </td>
+                  <td><strong style="color:var(--gold);font-family:'Playfair Display',serif;">${fmtCurrency(p.paid_amt)}</strong></td>
+                  <td>${statusPill(p.payment_status)}</td>
+                  <td style="font-size:0.78rem;color:var(--muted);">${p.paid_at ? fmtDate(p.paid_at) : '—'}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </div>
+      `;
+    } catch (err) {
+      wrap.innerHTML = `<div class="empty-state"><div class="empty-state-icon">⚠️</div><h3>Error</h3><p>${err.message}</p></div>`;
+    }
+  }
+
+  async function loadAllEvents() {
+    const wrap = document.getElementById('all-events-content');
+    wrap.innerHTML = '<div class="page-loader"><div class="loader"></div></div>';
+    try {
+      const events = await apiFetch('/events/all');
+      if (!events.length) {
+        wrap.innerHTML = `<div class="empty-state"><div class="empty-state-icon">🎪</div><h3>No events found</h3></div>`;
+        return;
+      }
+
+      wrap.innerHTML = `
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Event Title</th>
+                <th>Category</th>
+                <th>Date</th>
+                <th>Venue</th>
+                <th>City</th>
+                <th>Status</th>
+                <th>Organizer</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${events.map(e => `
+                <tr>
+                  <td style="color:var(--muted);font-size:0.78rem;">#${e.event_id}</td>
+                  <td>
+                    <div style="font-weight:600;font-size:0.9rem;">${e.title}</div>
+                  </td>
+                  <td>
+                    <span class="badge badge-gold" style="font-size:0.7rem;">${e.category_name||'—'}</span>
+                  </td>
+                  <td style="font-size:0.82rem;color:var(--muted);">${fmtDateShort(e.start_datetime)}</td>
+                  <td style="font-size:0.82rem;color:var(--muted);">${e.venue_name||'—'}</td>
+                  <td style="font-size:0.82rem;color:var(--muted);">${e.city_name||'—'}</td>
+                  <td>${statusPill(e.status)}</td>
+                  <td style="font-size:0.82rem;color:var(--muted);">${e.organizer_name||'—'}</td>
+                  <td>
+                    <a href="event-detail.html?id=${e.event_id}" class="btn btn-outline btn-sm">View</a>
+                  </td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </div>
+      `;
+    } catch (err) {
+      wrap.innerHTML = `<div class="empty-state"><div class="empty-state-icon">⚠️</div><h3>Error</h3><p>${err.message}</p></div>`;
+    }
+  }
+
+  // Load first tab on init
+  loadAllBookings();
+</script>
+</body>
+</html>
