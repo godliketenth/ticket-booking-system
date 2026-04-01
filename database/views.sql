@@ -106,7 +106,7 @@ SELECT
 FROM Event e
 LEFT JOIN Booking b ON e.event_id   = b.event_id
 LEFT JOIN Payment p ON b.booking_id = p.booking_id
-WHERE p.payment_status = 'completed'
+                    AND p.payment_status = 'completed'
 GROUP BY e.event_id, e.title, e.start_datetime, e.status;
 GO
 

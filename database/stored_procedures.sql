@@ -62,10 +62,8 @@ BEGIN
         INSERT INTO Booking_Item (quantity, price_each, subtotal, booking_id, ticket_type_id)
         VALUES (@quantity, @price_each, @subtotal, @booking_id, @ticket_type_id);
 
-        -- reduce available quantity (trigger also does this, procedure is a backup)
-        UPDATE Ticket_Type
-        SET available_quantity = available_quantity - @quantity
-        WHERE ticket_type_id = @ticket_type_id;
+        -- available_quantity is handled automatically by trg_ReduceTicketOnBooking
+        -- no manual update needed here
 
         COMMIT TRANSACTION;
 
