@@ -85,7 +85,28 @@ def get_my_bookings():
         conn   = get_connection()
         cursor = conn.cursor()
 
-        cursor.execute("EXEC sp_GetUserBookings @user_id = ?", user_id)
+        cursor.execute("""
+            SELECT
+                b.booking_id,
+                b.event_id,
+                b.booking_datetime,
+                b.total_amt,
+                b.booking_status,
+                e.title         AS event_title,
+                e.start_datetime,
+                v.venue_name,
+                c.city_name,
+                p.payment_method,
+                p.payment_status,
+                p.paid_at
+            FROM Booking b
+            JOIN Event   e ON b.event_id  = e.event_id
+            JOIN Venue   v ON e.venue_id  = v.venue_id
+            JOIN City    c ON v.city_id   = c.city_id
+            LEFT JOIN Payment p ON b.booking_id = p.booking_id
+            WHERE b.user_id = ?
+            ORDER BY b.booking_datetime DESC
+        """, user_id)
         bookings = rows_to_dict(cursor)
         conn.close()
 

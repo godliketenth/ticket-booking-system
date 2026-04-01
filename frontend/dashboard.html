@@ -15,30 +15,30 @@
 
     <!-- Page Header -->
     <div class="page-header">
-      <h1 id="page-title">My Dashboard</h1>
-      <p id="page-sub" class="text-muted">Your bookings, history, and account.</p>
+      <h1 id="page-title">{% if session.get('full_name') %}Welcome, {{ session['full_name'].split(' ')[0] }} 👋{% else %}My Dashboard{% endif %}</h1>
+      <p id="page-sub" class="text-muted">{% if session.get('role') == 'admin' %}Admin Dashboard — All bookings visible.{% else %}Your booking history and upcoming events.{% endif %}</p>
     </div>
 
     <!-- Stats -->
     <div class="stats-grid" id="stats-grid">
       <div class="stat-card">
         <div class="stat-label">Total Bookings</div>
-        <div class="stat-value" id="stat-total">—</div>
+        <div class="stat-value" id="stat-total">{% if stats %}{{ stats.total }}{% else %}—{% endif %}</div>
         <div class="stat-sub">All time</div>
       </div>
       <div class="stat-card">
         <div class="stat-label">Confirmed</div>
-        <div class="stat-value" id="stat-confirmed" style="color:var(--green);">—</div>
+        <div class="stat-value" id="stat-confirmed" style="color:var(--green);">{% if stats %}{{ stats.confirmed }}{% else %}—{% endif %}</div>
         <div class="stat-sub">Paid & attending</div>
       </div>
       <div class="stat-card">
         <div class="stat-label">Pending</div>
-        <div class="stat-value" id="stat-pending" style="color:var(--gold);">—</div>
+        <div class="stat-value" id="stat-pending" style="color:var(--gold);">{% if stats %}{{ stats.pending }}{% else %}—{% endif %}</div>
         <div class="stat-sub">Awaiting payment</div>
       </div>
       <div class="stat-card">
         <div class="stat-label">Amount Spent</div>
-        <div class="stat-value" id="stat-spent" style="font-size:1.5rem;">—</div>
+        <div class="stat-value" id="stat-spent" style="font-size:1.5rem;">{% if stats %}{{ stats.spent_display }}{% else %}—{% endif %}</div>
         <div class="stat-sub">On confirmed bookings</div>
       </div>
     </div>

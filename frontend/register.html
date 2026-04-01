@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Sign Up — BookMyShow</title>
+  <link rel="stylesheet" href="static/css/style.css" />
+</head>
+<body>
+
+<div class="auth-wrap">
+  <!-- Left Panel -->
+  <div class="auth-left">
+    <div class="auth-left-content">
+      <div style="font-size:4rem; margin-bottom:24px;">🎟</div>
+      <h2>Join the<br><em>experience.</em></h2>
+      <p style="margin-top:16px;">Create your account and start booking unforgettable events across India.</p>
+      <div style="margin-top:40px; display:flex; flex-direction:column; gap:16px; text-align:left;">
+        <div style="display:flex;align-items:center;gap:12px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.07);border-radius:12px;padding:14px 18px;">
+          <span style="font-size:1.4rem;">🎵</span>
+          <span style="font-size:0.88rem;color:var(--muted);">Thousands of events across India</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:12px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.07);border-radius:12px;padding:14px 18px;">
+          <span style="font-size:1.4rem;">⚡</span>
+          <span style="font-size:0.88rem;color:var(--muted);">Instant booking confirmation</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:12px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.07);border-radius:12px;padding:14px 18px;">
+          <span style="font-size:1.4rem;">🔒</span>
+          <span style="font-size:0.88rem;color:var(--muted);">Secure payments, easy refunds</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Right Panel -->
+  <div class="auth-right">
+    <div class="auth-form-box page-content">
+      <div style="margin-bottom:32px;">
+        <a href="events.html" class="nav-brand" style="font-size:1.4rem;">🎟 Book<span>My</span>Show</a>
+      </div>
+      <h3>Create Account</h3>
+      <p class="auth-sub">Sign up to start booking amazing events</p>
+
+      <div id="form-error" class="form-error" style="display:none; background:rgba(224,82,82,0.08); border:1px solid rgba(224,82,82,0.2); border-radius:10px; padding:12px 16px; margin-bottom:20px; font-size:0.875rem; color:var(--red);"></div>
+
+      <form id="register-form" novalidate>
+        <div class="form-group">
+          <label class="form-label">Full Name</label>
+          <input type="text" id="full_name" class="form-input" placeholder="Your full name" required />
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Username</label>
+          <input type="text" id="username" class="form-input" placeholder="Choose a username" required />
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Email Address</label>
+          <input type="email" id="email" class="form-input" placeholder="you@example.com" required />
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Password</label>
+          <input type="password" id="password" class="form-input" placeholder="Create a password" required />
+        </div>
+
+        <button type="submit" id="submit-btn" class="btn btn-gold btn-full btn-lg" style="margin-top:8px;">
+          Create Account
+        </button>
+      </form>
+
+      <div class="auth-divider">or</div>
+
+      <p style="text-align:center; font-size:0.88rem; color:var(--muted);">
+        Already have an account? <a href="login.html" style="color:var(--gold);">Sign in</a>
+      </p>
+    </div>
+  </div>
+</div>
+
+<div class="toast-container" id="toast-container"></div>
+
+<script src="static/js/main.js"></script>
+<script>
+  // Redirect if already logged in
+  if (Auth.isLoggedIn()) window.location.href = 'events.html';
+
+  document.getElementById('register-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const btn = document.getElementById('submit-btn');
+    const errBox = document.getElementById('form-error');
+
+    const full_name = document.getElementById('full_name').value.trim();
+    const username  = document.getElementById('username').value.trim();
+    const email     = document.getElementById('email').value.trim();
+    const password  = document.getElementById('password').value;
+
+    errBox.style.display = 'none';
+
+    if (!full_name || !username || !email || !password) {
+      errBox.textContent = 'Please fill in all fields.';
+      errBox.style.display = 'block';
+      return;
+    }
+
+    btn.innerHTML = '<span class="loader"></span> Creating account...';
+    btn.disabled = true;
+
+    try {
+      await apiFetch('/auth/register', {
+        method: 'POST',
+        body: JSON.stringify({ full_name, username, email, password })
+      });
+
+      // Auto-login after registration
+      const loginData = await apiFetch('/auth/login', {
+        method: 'POST',
+        body: JSON.stringify({ email, password })
+      });
+      Auth.set(loginData);
+
+      showToast(`Welcome, ${full_name.split(' ')[0]}! 🎉`, 'success');
+      setTimeout(() => window.location.href = 'events.html', 800);
+    } catch (err) {
+      errBox.textContent = err.message;
+      errBox.style.display = 'block';
+      btn.innerHTML = 'Create Account';
+      btn.disabled = false;
+    }
+  });
+</script>
+</body>
+</html>

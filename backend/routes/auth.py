@@ -35,7 +35,7 @@ def register():
     if role not in ('customer', 'organizer', 'admin'):
         return jsonify({'error': 'Invalid role.'}), 400
 
-    password_hash = generate_password_hash(password)
+    password_hash = generate_password_hash(password, method='pbkdf2:sha256')
 
     try:
         conn   = get_connection()
@@ -99,7 +99,18 @@ def login():
 
         user_id, full_name, username, user_email, password_hash, role = row
 
-        if not check_password_hash(password_hash, password):
+        # verify password: try werkzeug hash first, then plain-text fallback
+        # (sample data has plain-text values like 'hashed_pw_1' instead of real hashes)
+        try:
+            password_ok = check_password_hash(password_hash, password)
+        except Exception:
+            password_ok = False
+
+        # fallback: plain-text comparison for sample/legacy data
+        if not password_ok:
+            password_ok = (password_hash == password)
+
+        if not password_ok:
             return jsonify({'error': 'Invalid email or password.'}), 401
 
         # store user info in session

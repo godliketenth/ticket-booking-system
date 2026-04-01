@@ -31,7 +31,7 @@ def get_event_reviews(event_id):
                 r.review_id,
                 r.rating,
                 r.comment,
-                r.reviewed_at,
+                r.review_date AS reviewed_at,
                 u.full_name AS reviewer_name
             FROM Review r
             JOIN Users u ON r.user_id = u.user_id
