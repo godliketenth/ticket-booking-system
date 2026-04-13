@@ -3,8 +3,6 @@
 -- creates all tables with proper constraints and sample data
 
 
-
-
 CREATE DATABASE TicketBookingSystem;
 GO
 
@@ -271,6 +269,8 @@ INSERT INTO Event_Category (category_name) VALUES
 
 -- users (IDs 1-24)
 INSERT INTO Users (full_name, username, email, password_hash, role) VALUES
+('S J', 'sidj',      'sidj@example.com',  'pbkdf2:sha256:1000000$QthLu3uQfFPUYtPP$2d0caf969168727d3b80e6c8535313fd6e300e0aceb7360a3bd08d47aa26681a', 'organizer'),
+('admin',    'admin1',    'admin@example.com',      'pbkdf2:sha256:1000000$QthLu3uQfFPUYtPP$2d0caf969168727d3b80e6c8535313fd6e300e0aceb7360a3bd08d47aa26681a', 'admin'),
 ('Arjun Sharma',    'arjun_s',    'arjun@example.com',      'hashed_pw_1',  'customer'),   -- 1
 ('Priya Mehta',     'priya_m',    'priya@example.com',      'hashed_pw_2',  'organizer'),  -- 2
 ('Rohan Das',       'rohan_d',    'rohan@example.com',      'hashed_pw_3',  'customer'),   -- 3
@@ -458,3 +458,6 @@ INSERT INTO Review (rating, comment, user_id, event_id) VALUES
 (5, 'Sports Carnival was incredibly well organised.',                   18, 14),
 (4, 'Pune Open Mic had some really fresh talent. Will come again.',     16, 16);
 GO
+
+select * from users;
+select * from Booking;

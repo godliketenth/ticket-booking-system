@@ -71,7 +71,8 @@ function renderNavbar(activePage = '') {
   if (!navEl) return;
 
   const links = [
-    { href: 'events.html', label: 'Browse Events' },
+    { href: 'events.html',       label: 'Browse Events' },
+    { href: 'sql-explorer.html', label: '🗄️ SQL Explorer' },
   ];
   if (user) {
     links.push({ href: 'dashboard.html', label: 'My Bookings' });

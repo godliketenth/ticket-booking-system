@@ -8,11 +8,12 @@ import os
 from flask import Flask, render_template, session, jsonify
 from flask_cors import CORS
 
-from routes.auth     import auth_bp
-from routes.events   import events_bp
-from routes.bookings import bookings_bp
-from routes.payments import payments_bp
-from routes.reviews  import reviews_bp
+from routes.auth         import auth_bp
+from routes.events       import events_bp
+from routes.bookings     import bookings_bp
+from routes.payments     import payments_bp
+from routes.reviews      import reviews_bp
+from routes.sql_explorer import sql_explorer_bp
 
 # resolve absolute paths for template and static directories
 BASE_DIR     = os.path.dirname(os.path.abspath(__file__))
@@ -30,11 +31,12 @@ app.secret_key = 'tbs_secret_key_change_in_production'
 CORS(app, supports_credentials=True)
 
 # ── API Blueprints ───────────────────────────────────────────
-app.register_blueprint(auth_bp,     url_prefix='/api/auth')
-app.register_blueprint(events_bp,   url_prefix='/api/events')
-app.register_blueprint(bookings_bp, url_prefix='/api/bookings')
-app.register_blueprint(payments_bp, url_prefix='/api/payments')
-app.register_blueprint(reviews_bp,  url_prefix='/api/reviews')
+app.register_blueprint(auth_bp,          url_prefix='/api/auth')
+app.register_blueprint(events_bp,        url_prefix='/api/events')
+app.register_blueprint(bookings_bp,      url_prefix='/api/bookings')
+app.register_blueprint(payments_bp,      url_prefix='/api/payments')
+app.register_blueprint(reviews_bp,       url_prefix='/api/reviews')
+app.register_blueprint(sql_explorer_bp,  url_prefix='/api/sql-explorer')
 
 
 # ── Page Routes (Jinja2 Templates) ──────────────────────────
@@ -112,6 +114,11 @@ def dashboard_page():
 @app.route('/admin.html')
 def admin_page():
     return render_template('admin.html')
+
+
+@app.route('/sql-explorer.html')
+def sql_explorer_page():
+    return render_template('sql-explorer.html')
 
 
 # ── API Health Check ─────────────────────────────────────────

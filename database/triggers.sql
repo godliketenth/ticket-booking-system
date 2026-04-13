@@ -76,12 +76,14 @@ GO
 
 
 -- trigger 4: prevent booking into a cancelled or completed event
--- fires before a booking is inserted
--- stops the insert if the event is not in upcoming or ongoing state
+-- fires AFTER a booking is inserted
+-- rolls back if the event is not in upcoming or ongoing state
+-- NOTE: using AFTER INSERT (not INSTEAD OF) so that SCOPE_IDENTITY()
+--       in the calling stored procedure still works correctly
 
 CREATE TRIGGER trg_BlockBookingForClosedEvent
 ON Booking
-INSTEAD OF INSERT
+AFTER INSERT
 AS
 BEGIN
     SET NOCOUNT ON;
@@ -95,13 +97,8 @@ BEGIN
     )
     BEGIN
         RAISERROR('Cannot book tickets for a cancelled or completed event.', 16, 1);
-        RETURN;
+        ROLLBACK TRANSACTION;
     END
-
-    -- if all good, do the actual insert
-    INSERT INTO Booking (booking_datetime, total_amt, booking_status, user_id, event_id)
-    SELECT booking_datetime, total_amt, booking_status, user_id, event_id
-    FROM inserted;
 END;
 GO
 
