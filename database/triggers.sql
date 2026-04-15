@@ -129,3 +129,27 @@ BEGIN
     FROM inserted;
 END;
 GO
+
+
+DROP TRIGGER IF EXISTS trg_BlockBookingForClosedEvent;
+GO
+
+CREATE TRIGGER trg_BlockBookingForClosedEvent
+ON Booking
+AFTER INSERT
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    IF EXISTS (
+        SELECT 1
+        FROM inserted i
+        JOIN Event e ON i.event_id = e.event_id
+        WHERE e.status IN ('cancelled', 'completed')
+    )
+    BEGIN
+        RAISERROR('Cannot book tickets for a cancelled or completed event.', 16, 1);
+        ROLLBACK TRANSACTION;
+    END
+END;
+GO
