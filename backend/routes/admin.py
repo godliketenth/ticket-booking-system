@@ -1,7 +1,6 @@
 
 # routes/admin.py
-# admin panel: user management, revenue analytics, commission settings,
-# payout management
+# admin panel: user management, revenue analytics
 # all endpoints require admin role
 
 from flask import Blueprint, request, jsonify, session
@@ -9,6 +8,7 @@ import sys, os
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from models.db import get_connection, rows_to_dict, row_to_dict
+from config import COMMISSION_RATE
 
 admin_bp = Blueprint('admin', __name__)
 
@@ -136,15 +136,11 @@ def analytics_revenue():
         return jsonify({'error': 'Admin access required.'}), 403
 
     period = request.args.get('period', 'monthly')  # monthly, quarterly, yearly
+    commission_rate = COMMISSION_RATE
 
     try:
         conn   = get_connection()
         cursor = conn.cursor()
-
-        # commission rate
-        cursor.execute("SELECT setting_value FROM Platform_Settings WHERE setting_key = 'commission_rate'")
-        cr = cursor.fetchone()
-        commission_rate = float(cr[0]) if cr else 10.0
 
         if period == 'yearly':
             cursor.execute("""
@@ -206,14 +202,11 @@ def analytics_trends():
     if not uid:
         return jsonify({'error': 'Admin access required.'}), 403
 
+    commission_rate = COMMISSION_RATE
+
     try:
         conn   = get_connection()
         cursor = conn.cursor()
-
-        # commission rate
-        cursor.execute("SELECT setting_value FROM Platform_Settings WHERE setting_key = 'commission_rate'")
-        cr = cursor.fetchone()
-        commission_rate = float(cr[0]) if cr else 10.0
 
         # revenue by category
         cursor.execute("""
@@ -296,13 +289,11 @@ def analytics_organizers():
     if not uid:
         return jsonify({'error': 'Admin access required.'}), 403
 
+    commission_rate = COMMISSION_RATE
+
     try:
         conn   = get_connection()
         cursor = conn.cursor()
-
-        cursor.execute("SELECT setting_value FROM Platform_Settings WHERE setting_key = 'commission_rate'")
-        cr = cursor.fetchone()
-        commission_rate = float(cr[0]) if cr else 10.0
 
         cursor.execute("""
             SELECT
@@ -339,163 +330,6 @@ def get_settings():
     if not uid:
         return jsonify({'error': 'Admin access required.'}), 403
 
-    try:
-        conn   = get_connection()
-        cursor = conn.cursor()
-
-        cursor.execute("SELECT setting_key, setting_value, updated_at FROM Platform_Settings")
-        settings = rows_to_dict(cursor)
-        conn.close()
-
-        result = {}
-        for s in settings:
-            result[s['setting_key']] = s['setting_value']
-
-        return jsonify(result), 200
-
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
-
-
-# ── PUT /api/admin/settings/commission ───────────────────────
-@admin_bp.route('/settings/commission', methods=['PUT'])
-def update_commission():
-    uid = require_admin()
-    if not uid:
-        return jsonify({'error': 'Admin access required.'}), 403
-
-    data = request.get_json()
-    rate = data.get('commission_rate')
-
-    if rate is None:
-        return jsonify({'error': 'commission_rate is required.'}), 400
-
-    try:
-        rate = float(rate)
-        if rate < 0 or rate > 100:
-            return jsonify({'error': 'Commission rate must be between 0 and 100.'}), 400
-    except (ValueError, TypeError):
-        return jsonify({'error': 'Invalid commission rate.'}), 400
-
-    try:
-        conn   = get_connection()
-        cursor = conn.cursor()
-
-        cursor.execute("""
-            UPDATE Platform_Settings
-            SET setting_value = ?, updated_at = GETDATE()
-            WHERE setting_key = 'commission_rate'
-        """, str(rate))
-
-        if cursor.rowcount == 0:
-            cursor.execute("""
-                INSERT INTO Platform_Settings (setting_key, setting_value)
-                VALUES ('commission_rate', ?)
-            """, str(rate))
-
-        conn.commit()
-        conn.close()
-
-        return jsonify({'message': f'Commission rate updated to {rate}%.'}), 200
-
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
-
-
-# ── GET /api/admin/payouts ───────────────────────────────────
-# all payout requests from all organizers
-@admin_bp.route('/payouts', methods=['GET'])
-def get_all_payouts():
-    uid = require_admin()
-    if not uid:
-        return jsonify({'error': 'Admin access required.'}), 403
-
-    try:
-        conn   = get_connection()
-        cursor = conn.cursor()
-
-        cursor.execute("""
-            SELECT
-                pr.payout_id, pr.amount, pr.status,
-                pr.requested_at, pr.paid_at, pr.notes,
-                u.full_name AS organizer_name,
-                u.email     AS organizer_email,
-                u.user_id   AS organizer_id
-            FROM Payout_Request pr
-            JOIN Users u ON pr.organizer_id = u.user_id
-            ORDER BY pr.requested_at DESC
-        """)
-        payouts = rows_to_dict(cursor)
-        conn.close()
-
-        for p in payouts:
-            for k, v in p.items():
-                if hasattr(v, 'isoformat'):
-                    p[k] = v.isoformat()
-                if v is not None and 'Decimal' in str(type(v)):
-                    p[k] = float(v)
-
-        return jsonify(payouts), 200
-
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
-
-
-# ── PUT /api/admin/payouts/<id>/approve ──────────────────────
-@admin_bp.route('/payouts/<int:payout_id>/approve', methods=['PUT'])
-def approve_payout(payout_id):
-    uid = require_admin()
-    if not uid:
-        return jsonify({'error': 'Admin access required.'}), 403
-
-    try:
-        conn   = get_connection()
-        cursor = conn.cursor()
-
-        cursor.execute("""
-            UPDATE Payout_Request
-            SET status = 'paid', paid_at = GETDATE()
-            WHERE payout_id = ? AND status = 'pending'
-        """, payout_id)
-
-        if cursor.rowcount == 0:
-            conn.close()
-            return jsonify({'error': 'Payout not found or already processed.'}), 400
-
-        conn.commit()
-        conn.close()
-
-        return jsonify({'message': 'Payout approved and marked as paid.'}), 200
-
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
-
-
-# ── PUT /api/admin/payouts/<id>/reject ───────────────────────
-@admin_bp.route('/payouts/<int:payout_id>/reject', methods=['PUT'])
-def reject_payout(payout_id):
-    uid = require_admin()
-    if not uid:
-        return jsonify({'error': 'Admin access required.'}), 403
-
-    try:
-        conn   = get_connection()
-        cursor = conn.cursor()
-
-        cursor.execute("""
-            UPDATE Payout_Request
-            SET status = 'rejected'
-            WHERE payout_id = ? AND status = 'pending'
-        """, payout_id)
-
-        if cursor.rowcount == 0:
-            conn.close()
-            return jsonify({'error': 'Payout not found or already processed.'}), 400
-
-        conn.commit()
-        conn.close()
-
-        return jsonify({'message': 'Payout rejected.'}), 200
-
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
+    return jsonify({
+        'commission_rate': COMMISSION_RATE
+    }), 200

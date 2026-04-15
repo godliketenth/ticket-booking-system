@@ -30,8 +30,6 @@
       <button class="tab-btn" onclick="switchAdminTab(this,'all-events')">Events &amp; Revenue</button>
       <button class="tab-btn" onclick="switchAdminTab(this,'users')">👥 Users</button>
       <button class="tab-btn" onclick="switchAdminTab(this,'analytics')">📊 Analytics</button>
-      <button class="tab-btn" onclick="switchAdminTab(this,'commission')">⚙️ Commission</button>
-      <button class="tab-btn" onclick="switchAdminTab(this,'payouts')">💰 Payouts</button>
     </div>
 
     <!-- ═══ All Bookings ═══ -->
@@ -97,26 +95,6 @@
       </div>
     </div>
 
-    <!-- ═══ Commission ═══ -->
-    <div id="tab-commission" class="tab-panel">
-      <div class="section-header">
-        <h2>Commission Settings</h2>
-      </div>
-      <div id="commission-content">
-        <div class="page-loader"><div class="loader"></div></div>
-      </div>
-    </div>
-
-    <!-- ═══ Payouts ═══ -->
-    <div id="tab-payouts" class="tab-panel">
-      <div class="section-header">
-        <h2>Organizer Payouts</h2>
-        <button class="btn btn-outline btn-sm" onclick="loadAdminPayouts()">↻ Refresh</button>
-      </div>
-      <div id="admin-payouts-content">
-        <div class="page-loader"><div class="loader"></div></div>
-      </div>
-    </div>
 
   </div>
 </div>
@@ -161,8 +139,6 @@
     if (tabId === 'all-events')   loadAllEvents();
     if (tabId === 'users')        loadUsers();
     if (tabId === 'analytics')    loadAnalytics();
-    if (tabId === 'commission')   loadCommission();
-    if (tabId === 'payouts')      loadAdminPayouts();
   }
 
   // ══════════════════════════════════════════════════════════
@@ -541,155 +517,8 @@
     }
   }
 
-  // ══════════════════════════════════════════════════════════
-  // COMMISSION SETTINGS
-  // ══════════════════════════════════════════════════════════
-  async function loadCommission() {
-    const wrap = document.getElementById('commission-content');
-    wrap.innerHTML = '<div class="page-loader"><div class="loader"></div></div>';
 
-    try {
-      const [settings, orgData] = await Promise.all([
-        apiFetch('/admin/settings'),
-        apiFetch('/admin/analytics/organizers')
-      ]);
 
-      const rate = parseFloat(settings.commission_rate || 10);
-
-      wrap.innerHTML = `
-        <div class="card" style="max-width:500px;margin-bottom:32px;">
-          <div class="card-body">
-            <h3 style="font-size:1.1rem;margin-bottom:20px;">Platform Commission Rate</h3>
-            <div style="display:flex;align-items:center;gap:16px;margin-bottom:20px;">
-              <div style="position:relative;flex:1;">
-                <input type="number" class="form-input" id="comm-rate-input" value="${rate}" min="0" max="100" step="0.5" style="padding-right:40px;font-size:1.2rem;font-weight:700;" />
-                <span style="position:absolute;right:16px;top:50%;transform:translateY(-50%);color:var(--muted);font-weight:600;">%</span>
-              </div>
-              <button class="btn btn-gold" onclick="updateCommission()">Update</button>
-            </div>
-            <p class="text-muted text-sm">This percentage is deducted from all organizer revenue as platform fee. Changes apply to all future calculations.</p>
-          </div>
-        </div>
-
-        <h3 style="font-size:1.1rem;margin-bottom:12px;">Per-Organizer Earnings Breakdown</h3>
-        ${orgData.organizers.length ? `
-        <div class="table-wrap">
-          <table>
-            <thead><tr><th>Organizer</th><th>Bookings</th><th>Gross Revenue</th><th>Commission (${rate}%)</th><th>Net to Organizer</th></tr></thead>
-            <tbody>
-              ${orgData.organizers.map(o => `
-                <tr>
-                  <td style="font-weight:600;">${o.organizer_name}</td>
-                  <td>${o.total_bookings}</td>
-                  <td><strong>${fmtCurrency(o.total_revenue)}</strong></td>
-                  <td style="color:var(--red);">− ${fmtCurrency(o.admin_profit)}</td>
-                  <td><strong style="color:var(--gold);">${fmtCurrency(o.organizer_earnings)}</strong></td>
-                </tr>
-              `).join('')}
-            </tbody>
-          </table>
-        </div>` : '<p class="text-muted">No organizer revenue data yet.</p>'}
-      `;
-    } catch (err) {
-      wrap.innerHTML = `<div class="empty-state"><div class="empty-state-icon">⚠️</div><h3>Error</h3><p>${err.message}</p></div>`;
-    }
-  }
-
-  async function updateCommission() {
-    const rate = parseFloat(document.getElementById('comm-rate-input').value);
-    if (isNaN(rate) || rate < 0 || rate > 100) {
-      showToast('Rate must be between 0 and 100.', 'error');
-      return;
-    }
-    try {
-      await apiFetch('/admin/settings/commission', {
-        method: 'PUT',
-        body: JSON.stringify({ commission_rate: rate })
-      });
-      showToast(`Commission updated to ${rate}%`, 'success');
-      loadCommission();
-    } catch (err) {
-      showToast(err.message, 'error');
-    }
-  }
-
-  // ══════════════════════════════════════════════════════════
-  // PAYOUTS
-  // ══════════════════════════════════════════════════════════
-  async function loadAdminPayouts() {
-    const wrap = document.getElementById('admin-payouts-content');
-    wrap.innerHTML = '<div class="page-loader"><div class="loader"></div></div>';
-
-    try {
-      const payouts = await apiFetch('/admin/payouts');
-
-      if (!payouts.length) {
-        wrap.innerHTML = `<div class="empty-state"><div class="empty-state-icon">💰</div><h3>No payout requests yet</h3></div>`;
-        return;
-      }
-
-      const pending = payouts.filter(p => p.status === 'pending');
-      const paid    = payouts.filter(p => p.status === 'paid');
-      const totalPending = pending.reduce((s,p) => s + (p.amount||0), 0);
-      const totalPaid    = paid.reduce((s,p) => s + (p.amount||0), 0);
-
-      wrap.innerHTML = `
-        <div class="stats-grid" style="margin-bottom:28px;">
-          <div class="stat-card"><div class="stat-label">Total Requests</div><div class="stat-value">${payouts.length}</div></div>
-          <div class="stat-card"><div class="stat-label">Pending Amount</div><div class="stat-value" style="font-size:1.4rem;color:var(--gold);">${fmtCurrency(totalPending)}</div></div>
-          <div class="stat-card"><div class="stat-label">Total Paid</div><div class="stat-value" style="font-size:1.4rem;color:var(--green);">${fmtCurrency(totalPaid)}</div></div>
-        </div>
-        <div class="table-wrap">
-          <table>
-            <thead><tr><th>#</th><th>Organizer</th><th>Email</th><th>Amount</th><th>Status</th><th>Requested</th><th>Paid At</th><th>Actions</th></tr></thead>
-            <tbody>
-              ${payouts.map(p => `
-                <tr>
-                  <td style="color:var(--muted);font-size:0.78rem;">#${p.payout_id}</td>
-                  <td style="font-weight:600;font-size:0.9rem;">${p.organizer_name}</td>
-                  <td style="font-size:0.82rem;color:var(--muted);">${p.organizer_email}</td>
-                  <td><strong style="color:var(--gold);font-family:'Playfair Display',serif;">${fmtCurrency(p.amount)}</strong></td>
-                  <td>${statusPill(p.status)}</td>
-                  <td style="font-size:0.78rem;color:var(--muted);">${fmtDateShort(p.requested_at)}</td>
-                  <td style="font-size:0.78rem;color:var(--muted);">${p.paid_at ? fmtDateShort(p.paid_at) : '—'}</td>
-                  <td>
-                    ${p.status === 'pending' ? `
-                      <div style="display:flex;gap:6px;">
-                        <button class="btn btn-gold btn-sm" onclick="approvePayout(${p.payout_id})">✓ Approve</button>
-                        <button class="btn btn-danger btn-sm" onclick="rejectPayout(${p.payout_id})">✕ Reject</button>
-                      </div>
-                    ` : '<span class="text-muted text-xs">—</span>'}
-                  </td>
-                </tr>
-              `).join('')}
-            </tbody>
-          </table>
-        </div>
-      `;
-    } catch (err) {
-      wrap.innerHTML = `<div class="empty-state"><div class="empty-state-icon">⚠️</div><h3>Error</h3><p>${err.message}</p></div>`;
-    }
-  }
-
-  async function approvePayout(payoutId) {
-    try {
-      await apiFetch(`/admin/payouts/${payoutId}/approve`, { method: 'PUT' });
-      showToast('Payout approved!', 'success');
-      loadAdminPayouts();
-    } catch (err) {
-      showToast(err.message, 'error');
-    }
-  }
-
-  async function rejectPayout(payoutId) {
-    try {
-      await apiFetch(`/admin/payouts/${payoutId}/reject`, { method: 'PUT' });
-      showToast('Payout rejected.', 'info');
-      loadAdminPayouts();
-    } catch (err) {
-      showToast(err.message, 'error');
-    }
-  }
 
   // ══════════════════════════════════════════════════════════
   // INIT

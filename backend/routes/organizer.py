@@ -1,7 +1,7 @@
 
 # routes/organizer.py
 # organizer dashboard: create/edit/delete events, view stats,
-# attendees, earnings, payouts
+# attendees, earnings
 # all endpoints require organizer role
 
 from flask import Blueprint, request, jsonify, session
@@ -9,6 +9,7 @@ import sys, os
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from models.db import get_connection, rows_to_dict, row_to_dict
+from config import COMMISSION_RATE
 
 organizer_bp = Blueprint('organizer', __name__)
 
@@ -48,27 +49,9 @@ def organizer_dashboard():
         total_sold    = row[0]
         total_revenue = float(row[1])
 
-        # commission rate
-        cursor.execute("SELECT setting_value FROM Platform_Settings WHERE setting_key = 'commission_rate'")
-        cr = cursor.fetchone()
-        commission_rate = float(cr[0]) if cr else 10.0
-
+        commission_rate = COMMISSION_RATE
         commission = total_revenue * commission_rate / 100
         net_earnings = total_revenue - commission
-
-        # pending payouts
-        cursor.execute("""
-            SELECT ISNULL(SUM(amount), 0) FROM Payout_Request
-            WHERE organizer_id = ? AND status = 'pending'
-        """, uid)
-        pending_payouts = float(cursor.fetchone()[0])
-
-        # total paid out
-        cursor.execute("""
-            SELECT ISNULL(SUM(amount), 0) FROM Payout_Request
-            WHERE organizer_id = ? AND status = 'paid'
-        """, uid)
-        total_paid_out = float(cursor.fetchone()[0])
 
         conn.close()
 
@@ -78,9 +61,7 @@ def organizer_dashboard():
             'total_revenue':   total_revenue,
             'commission_rate': commission_rate,
             'commission':      commission,
-            'net_earnings':    net_earnings,
-            'pending_payouts': pending_payouts,
-            'total_paid_out':  total_paid_out
+            'net_earnings':    net_earnings
         }), 200
 
     except Exception as e:
@@ -316,10 +297,7 @@ def event_stats(event_id):
             conn.close()
             return jsonify({'error': 'Event not found.'}), 404
 
-        # commission
-        cursor.execute("SELECT setting_value FROM Platform_Settings WHERE setting_key = 'commission_rate'")
-        cr = cursor.fetchone()
-        commission_rate = float(cr[0]) if cr else 10.0
+        commission_rate = COMMISSION_RATE
 
         conn.close()
 
@@ -401,10 +379,7 @@ def get_earnings():
         """, uid)
         events = rows_to_dict(cursor)
 
-        # commission rate
-        cursor.execute("SELECT setting_value FROM Platform_Settings WHERE setting_key = 'commission_rate'")
-        cr = cursor.fetchone()
-        commission_rate = float(cr[0]) if cr else 10.0
+        commission_rate = COMMISSION_RATE
 
         conn.close()
 
@@ -428,91 +403,7 @@ def get_earnings():
         return jsonify({'error': str(e)}), 500
 
 
-# ── POST /api/organizer/payouts/request ──────────────────────
-@organizer_bp.route('/payouts/request', methods=['POST'])
-def request_payout():
-    uid = require_organizer()
-    if not uid:
-        return jsonify({'error': 'Organizer access required.'}), 403
 
-    data   = request.get_json()
-    amount = data.get('amount', 0)
-
-    if amount <= 0:
-        return jsonify({'error': 'Amount must be greater than 0.'}), 400
-
-    try:
-        conn   = get_connection()
-        cursor = conn.cursor()
-
-        # check if they have enough earnings
-        cursor.execute("""
-            SELECT ISNULL(SUM(total_revenue), 0)
-            FROM vw_OrganizerEventStats WHERE organiser_id = ?
-        """, uid)
-        total_revenue = float(cursor.fetchone()[0])
-
-        cursor.execute("SELECT setting_value FROM Platform_Settings WHERE setting_key = 'commission_rate'")
-        cr = cursor.fetchone()
-        commission_rate = float(cr[0]) if cr else 10.0
-        net_earnings = total_revenue * (1 - commission_rate / 100)
-
-        # subtract already paid/pending payouts
-        cursor.execute("""
-            SELECT ISNULL(SUM(amount), 0) FROM Payout_Request
-            WHERE organizer_id = ? AND status IN ('pending', 'paid')
-        """, uid)
-        already_requested = float(cursor.fetchone()[0])
-
-        available = net_earnings - already_requested
-        if amount > available:
-            conn.close()
-            return jsonify({'error': f'Insufficient balance. Available: ₹{available:,.2f}'}), 400
-
-        cursor.execute("""
-            INSERT INTO Payout_Request (organizer_id, amount, status)
-            VALUES (?, ?, 'pending')
-        """, uid, amount)
-        conn.commit()
-        conn.close()
-
-        return jsonify({'message': 'Payout request submitted successfully.'}), 201
-
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
-
-
-# ── GET /api/organizer/payouts ───────────────────────────────
-@organizer_bp.route('/payouts', methods=['GET'])
-def get_payouts():
-    uid = require_organizer()
-    if not uid:
-        return jsonify({'error': 'Organizer access required.'}), 403
-
-    try:
-        conn   = get_connection()
-        cursor = conn.cursor()
-
-        cursor.execute("""
-            SELECT payout_id, amount, status, requested_at, paid_at, notes
-            FROM Payout_Request
-            WHERE organizer_id = ?
-            ORDER BY requested_at DESC
-        """, uid)
-        payouts = rows_to_dict(cursor)
-        conn.close()
-
-        for p in payouts:
-            for k, v in p.items():
-                if hasattr(v, 'isoformat'):
-                    p[k] = v.isoformat()
-                if v is not None and 'Decimal' in str(type(v)):
-                    p[k] = float(v)
-
-        return jsonify(payouts), 200
-
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
 
 
 # ── GET /api/organizer/venues ────────────────────────────────

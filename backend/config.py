@@ -27,3 +27,6 @@ CONNECTION_STRING = (
 #     f'UID={SQL_USERNAME};'
 #     f'PWD={SQL_PASSWORD};'
 # )
+
+# platform commission rate (percentage deducted from organizer revenue)
+COMMISSION_RATE = 10.0
