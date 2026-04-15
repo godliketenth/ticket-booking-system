@@ -18,7 +18,7 @@
         <span style="font-size:1.8rem;">🛡</span>
         <div>
           <h1>Admin Panel</h1>
-          <p class="text-muted">Manage bookings, payments and events.</p>
+          <p class="text-muted">Full platform control — users, events, revenue and payouts.</p>
         </div>
       </div>
     </div>
@@ -28,9 +28,13 @@
       <button class="tab-btn active" onclick="switchAdminTab(this,'all-bookings')">All Bookings</button>
       <button class="tab-btn" onclick="switchAdminTab(this,'all-payments')">All Payments</button>
       <button class="tab-btn" onclick="switchAdminTab(this,'all-events')">Events &amp; Revenue</button>
+      <button class="tab-btn" onclick="switchAdminTab(this,'users')">👥 Users</button>
+      <button class="tab-btn" onclick="switchAdminTab(this,'analytics')">📊 Analytics</button>
+      <button class="tab-btn" onclick="switchAdminTab(this,'commission')">⚙️ Commission</button>
+      <button class="tab-btn" onclick="switchAdminTab(this,'payouts')">💰 Payouts</button>
     </div>
 
-    <!-- All Bookings -->
+    <!-- ═══ All Bookings ═══ -->
     <div id="tab-all-bookings" class="tab-panel active">
       <div class="section-header">
         <h2>All Bookings</h2>
@@ -41,7 +45,7 @@
       </div>
     </div>
 
-    <!-- All Payments -->
+    <!-- ═══ All Payments ═══ -->
     <div id="tab-all-payments" class="tab-panel">
       <div class="section-header">
         <h2>All Payments</h2>
@@ -52,7 +56,7 @@
       </div>
     </div>
 
-    <!-- Events Revenue -->
+    <!-- ═══ Events Revenue ═══ -->
     <div id="tab-all-events" class="tab-panel">
       <div class="section-header">
         <h2>Events &amp; Revenue</h2>
@@ -63,6 +67,73 @@
       </div>
     </div>
 
+    <!-- ═══ User Management ═══ -->
+    <div id="tab-users" class="tab-panel">
+      <div class="section-header">
+        <h2>User Management</h2>
+        <div style="display:flex;gap:8px;align-items:center;">
+          <select class="filter-select" id="user-role-filter" onchange="loadUsers()">
+            <option value="">All Roles</option>
+            <option value="customer">Customers</option>
+            <option value="organizer">Organizers</option>
+            <option value="admin">Admins</option>
+          </select>
+          <button class="btn btn-outline btn-sm" onclick="loadUsers()">↻ Refresh</button>
+        </div>
+      </div>
+      <div id="users-content">
+        <div class="page-loader"><div class="loader"></div></div>
+      </div>
+    </div>
+
+    <!-- ═══ Analytics ═══ -->
+    <div id="tab-analytics" class="tab-panel">
+      <div class="section-header">
+        <h2>Revenue Analytics</h2>
+        <button class="btn btn-outline btn-sm" onclick="loadAnalytics()">↻ Refresh</button>
+      </div>
+      <div id="analytics-content">
+        <div class="page-loader"><div class="loader"></div></div>
+      </div>
+    </div>
+
+    <!-- ═══ Commission ═══ -->
+    <div id="tab-commission" class="tab-panel">
+      <div class="section-header">
+        <h2>Commission Settings</h2>
+      </div>
+      <div id="commission-content">
+        <div class="page-loader"><div class="loader"></div></div>
+      </div>
+    </div>
+
+    <!-- ═══ Payouts ═══ -->
+    <div id="tab-payouts" class="tab-panel">
+      <div class="section-header">
+        <h2>Organizer Payouts</h2>
+        <button class="btn btn-outline btn-sm" onclick="loadAdminPayouts()">↻ Refresh</button>
+      </div>
+      <div id="admin-payouts-content">
+        <div class="page-loader"><div class="loader"></div></div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- Delete User Confirm Modal -->
+<div class="modal-overlay" id="delete-user-modal">
+  <div class="modal">
+    <div class="modal-header">
+      <h4>Deactivate User</h4>
+      <button class="modal-close" onclick="closeModal('delete-user-modal')">✕</button>
+    </div>
+    <p style="color:var(--muted);margin-bottom:8px;">Are you sure you want to deactivate this user?</p>
+    <p style="color:var(--muted);margin-bottom:24px;font-size:0.82rem;">Their account will be disabled but all data (bookings, events) will be preserved. You can reactivate them later.</p>
+    <div style="display:flex;gap:12px;">
+      <button class="btn btn-outline" style="flex:1;" onclick="closeModal('delete-user-modal')">Cancel</button>
+      <button class="btn btn-danger" style="flex:1;" id="confirm-deactivate-btn">Deactivate</button>
+    </div>
   </div>
 </div>
 
@@ -87,9 +158,16 @@
 
     if (tabId === 'all-bookings') loadAllBookings();
     if (tabId === 'all-payments') loadAllPayments();
-    if (tabId === 'all-events') loadAllEvents();
+    if (tabId === 'all-events')   loadAllEvents();
+    if (tabId === 'users')        loadUsers();
+    if (tabId === 'analytics')    loadAnalytics();
+    if (tabId === 'commission')   loadCommission();
+    if (tabId === 'payouts')      loadAdminPayouts();
   }
 
+  // ══════════════════════════════════════════════════════════
+  // BOOKINGS (unchanged logic)
+  // ══════════════════════════════════════════════════════════
   async function loadAllBookings() {
     const wrap = document.getElementById('all-bookings-content');
     wrap.innerHTML = '<div class="page-loader"><div class="loader"></div></div>';
@@ -99,8 +177,6 @@
         wrap.innerHTML = `<div class="empty-state"><div class="empty-state-icon">📋</div><h3>No bookings yet</h3></div>`;
         return;
       }
-
-      // Summary stats
       const total = bookings.length;
       const confirmed = bookings.filter(b => b.booking_status === 'confirmed').length;
       const pending = bookings.filter(b => b.booking_status === 'pending').length;
@@ -115,27 +191,12 @@
         </div>
         <div class="table-wrap">
           <table>
-            <thead>
-              <tr>
-                <th>Booking #</th>
-                <th>Customer</th>
-                <th>Event</th>
-                <th>Venue</th>
-                <th>Amount</th>
-                <th>Booking Status</th>
-                <th>Payment</th>
-                <th>Method</th>
-                <th>Booked</th>
-              </tr>
-            </thead>
+            <thead><tr><th>Booking #</th><th>Customer</th><th>Event</th><th>Venue</th><th>Amount</th><th>Booking Status</th><th>Payment</th><th>Method</th><th>Booked</th></tr></thead>
             <tbody>
               ${bookings.map(b => `
                 <tr>
                   <td style="color:var(--muted);font-size:0.78rem;">#${b.booking_id}</td>
-                  <td>
-                    <div style="font-weight:600;font-size:0.88rem;">${b.customer_name || '—'}</div>
-                    <div style="font-size:0.75rem;color:var(--muted);">${b.customer_email || ''}</div>
-                  </td>
+                  <td><div style="font-weight:600;font-size:0.88rem;">${b.customer_name || '—'}</div><div style="font-size:0.75rem;color:var(--muted);">${b.customer_email || ''}</div></td>
                   <td style="font-weight:500;font-size:0.88rem;max-width:180px;">${b.event_title || '—'}</td>
                   <td style="font-size:0.82rem;color:var(--muted);">${b.venue_name || '—'}<br><span style="font-size:0.75rem;">${b.city_name||''}</span></td>
                   <td><strong style="color:var(--gold);font-family:'Playfair Display',serif;">${fmtCurrency(b.total_amt)}</strong></td>
@@ -154,6 +215,9 @@
     }
   }
 
+  // ══════════════════════════════════════════════════════════
+  // PAYMENTS (unchanged logic)
+  // ══════════════════════════════════════════════════════════
   async function loadAllPayments() {
     const wrap = document.getElementById('all-payments-content');
     wrap.innerHTML = '<div class="page-loader"><div class="loader"></div></div>';
@@ -163,7 +227,6 @@
         wrap.innerHTML = `<div class="empty-state"><div class="empty-state-icon">💳</div><h3>No payments yet</h3></div>`;
         return;
       }
-
       const totalRevenue = payments.filter(p => p.payment_status === 'completed').reduce((s,p) => s + (p.paid_amt||0), 0);
       const refunds = payments.filter(p => p.payment_status === 'refunded').reduce((s,p) => s + (p.paid_amt||0), 0);
 
@@ -176,28 +239,14 @@
         </div>
         <div class="table-wrap">
           <table>
-            <thead>
-              <tr>
-                <th>Transaction Ref</th>
-                <th>Customer</th>
-                <th>Event</th>
-                <th>Method</th>
-                <th>Amount</th>
-                <th>Status</th>
-                <th>Date</th>
-              </tr>
-            </thead>
+            <thead><tr><th>Transaction Ref</th><th>Customer</th><th>Event</th><th>Method</th><th>Amount</th><th>Status</th><th>Date</th></tr></thead>
             <tbody>
               ${payments.map(p => `
                 <tr>
                   <td style="font-size:0.75rem;color:var(--muted);font-family:monospace;">${p.transaction_ref || '—'}</td>
                   <td style="font-size:0.88rem;font-weight:500;">${p.customer_name || '—'}</td>
                   <td style="font-size:0.82rem;color:var(--muted);max-width:160px;">${p.event_title || '—'}</td>
-                  <td>
-                    <span style="background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:3px 8px;font-size:0.75rem;">
-                      ${p.payment_method || '—'}
-                    </span>
-                  </td>
+                  <td><span style="background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:3px 8px;font-size:0.75rem;">${p.payment_method || '—'}</span></td>
                   <td><strong style="color:var(--gold);font-family:'Playfair Display',serif;">${fmtCurrency(p.paid_amt)}</strong></td>
                   <td>${statusPill(p.payment_status)}</td>
                   <td style="font-size:0.78rem;color:var(--muted);">${p.paid_at ? fmtDate(p.paid_at) : '—'}</td>
@@ -212,6 +261,9 @@
     }
   }
 
+  // ══════════════════════════════════════════════════════════
+  // EVENTS (unchanged logic)
+  // ══════════════════════════════════════════════════════════
   async function loadAllEvents() {
     const wrap = document.getElementById('all-events-content');
     wrap.innerHTML = '<div class="page-loader"><div class="loader"></div></div>';
@@ -221,40 +273,83 @@
         wrap.innerHTML = `<div class="empty-state"><div class="empty-state-icon">🎪</div><h3>No events found</h3></div>`;
         return;
       }
-
       wrap.innerHTML = `
         <div class="table-wrap">
           <table>
-            <thead>
-              <tr>
-                <th>ID</th>
-                <th>Event Title</th>
-                <th>Category</th>
-                <th>Date</th>
-                <th>Venue</th>
-                <th>City</th>
-                <th>Status</th>
-                <th>Organizer</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
+            <thead><tr><th>ID</th><th>Event Title</th><th>Category</th><th>Date</th><th>Venue</th><th>City</th><th>Status</th><th>Organizer</th><th>Actions</th></tr></thead>
             <tbody>
               ${events.map(e => `
                 <tr>
                   <td style="color:var(--muted);font-size:0.78rem;">#${e.event_id}</td>
-                  <td>
-                    <div style="font-weight:600;font-size:0.9rem;">${e.title}</div>
-                  </td>
-                  <td>
-                    <span class="badge badge-gold" style="font-size:0.7rem;">${e.category_name||'—'}</span>
-                  </td>
+                  <td><div style="font-weight:600;font-size:0.9rem;">${e.title}</div></td>
+                  <td><span class="badge badge-gold" style="font-size:0.7rem;">${e.category_name||'—'}</span></td>
                   <td style="font-size:0.82rem;color:var(--muted);">${fmtDateShort(e.start_datetime)}</td>
                   <td style="font-size:0.82rem;color:var(--muted);">${e.venue_name||'—'}</td>
                   <td style="font-size:0.82rem;color:var(--muted);">${e.city_name||'—'}</td>
                   <td>${statusPill(e.status)}</td>
                   <td style="font-size:0.82rem;color:var(--muted);">${e.organizer_name||'—'}</td>
+                  <td><a href="event-detail.html?id=${e.event_id}" class="btn btn-outline btn-sm">View</a></td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </div>
+      `;
+    } catch (err) {
+      wrap.innerHTML = `<div class="empty-state"><div class="empty-state-icon">⚠️</div><h3>Error</h3><p>${err.message}</p></div>`;
+    }
+  }
+
+  // ══════════════════════════════════════════════════════════
+  // USER MANAGEMENT
+  // ══════════════════════════════════════════════════════════
+  async function loadUsers() {
+    const wrap = document.getElementById('users-content');
+    wrap.innerHTML = '<div class="page-loader"><div class="loader"></div></div>';
+
+    const role = document.getElementById('user-role-filter').value;
+    let url = '/admin/users';
+    if (role) url += `?role=${role}`;
+
+    try {
+      const users = await apiFetch(url);
+      if (!users.length) {
+        wrap.innerHTML = `<div class="empty-state"><div class="empty-state-icon">👥</div><h3>No users found</h3></div>`;
+        return;
+      }
+
+      const totalActive = users.filter(u => u.is_active).length;
+      const totalInactive = users.filter(u => !u.is_active).length;
+      const organizers = users.filter(u => u.role === 'organizer').length;
+      const customers = users.filter(u => u.role === 'customer').length;
+
+      wrap.innerHTML = `
+        <div class="stats-grid" style="margin-bottom:28px;">
+          <div class="stat-card"><div class="stat-label">Total Users</div><div class="stat-value">${users.length}</div></div>
+          <div class="stat-card"><div class="stat-label">Active</div><div class="stat-value" style="color:var(--green);">${totalActive}</div></div>
+          <div class="stat-card"><div class="stat-label">Deactivated</div><div class="stat-value" style="color:var(--red);">${totalInactive}</div></div>
+          <div class="stat-card"><div class="stat-label">Organizers</div><div class="stat-value" style="color:var(--gold);">${organizers}</div></div>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>ID</th><th>Name</th><th>Email</th><th>Username</th><th>Role</th><th>Status</th><th>Joined</th><th>Actions</th></tr></thead>
+            <tbody>
+              ${users.map(u => `
+                <tr style="${!u.is_active ? 'opacity:0.5;' : ''}">
+                  <td style="color:var(--muted);font-size:0.78rem;">#${u.user_id}</td>
+                  <td style="font-weight:600;font-size:0.9rem;">${u.full_name}</td>
+                  <td style="font-size:0.82rem;color:var(--muted);">${u.email}</td>
+                  <td style="font-size:0.82rem;color:var(--muted);">@${u.username}</td>
+                  <td><span class="role-badge">${u.role}</span></td>
+                  <td>${u.is_active ? '<span class="status-pill status-confirmed">active</span>' : '<span class="status-pill status-cancelled">inactive</span>'}</td>
+                  <td style="font-size:0.78rem;color:var(--muted);">${fmtDateShort(u.created_at)}</td>
                   <td>
-                    <a href="event-detail.html?id=${e.event_id}" class="btn btn-outline btn-sm">View</a>
+                    <div style="display:flex;gap:6px;">
+                      ${u.is_active
+                        ? `<button class="btn btn-danger btn-sm" onclick="openDeactivateModal(${u.user_id}, '${u.full_name.replace(/'/g,"\\'")}')">Deactivate</button>`
+                        : `<button class="btn btn-gold btn-sm" onclick="activateUser(${u.user_id})">Activate</button>`
+                      }
+                    </div>
                   </td>
                 </tr>
               `).join('')}
@@ -267,7 +362,338 @@
     }
   }
 
-  // Load first tab on init
+  function openDeactivateModal(userId, name) {
+    document.getElementById('confirm-deactivate-btn').onclick = () => deactivateUser(userId);
+    openModal('delete-user-modal');
+  }
+
+  async function deactivateUser(userId) {
+    const btn = document.getElementById('confirm-deactivate-btn');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="loader"></span>';
+    try {
+      await apiFetch(`/admin/users/${userId}`, { method: 'DELETE' });
+      showToast('User deactivated.', 'success');
+      closeModal('delete-user-modal');
+      loadUsers();
+    } catch (err) {
+      showToast(err.message, 'error');
+    }
+    btn.disabled = false;
+    btn.textContent = 'Deactivate';
+  }
+
+  async function activateUser(userId) {
+    try {
+      await apiFetch(`/admin/users/${userId}/activate`, { method: 'PUT' });
+      showToast('User activated.', 'success');
+      loadUsers();
+    } catch (err) {
+      showToast(err.message, 'error');
+    }
+  }
+
+  // ══════════════════════════════════════════════════════════
+  // ANALYTICS
+  // ══════════════════════════════════════════════════════════
+  let analyticsPeriod = 'monthly';
+
+  async function loadAnalytics() {
+    const wrap = document.getElementById('analytics-content');
+    wrap.innerHTML = '<div class="page-loader"><div class="loader"></div></div>';
+
+    try {
+      const [trends, revenue, orgData] = await Promise.all([
+        apiFetch('/admin/analytics/trends'),
+        apiFetch(`/admin/analytics/revenue?period=${analyticsPeriod}`),
+        apiFetch('/admin/analytics/organizers')
+      ]);
+
+      const monthNames = ['','Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
+      wrap.innerHTML = `
+        <!-- Top Summary -->
+        <div class="stats-grid" style="margin-bottom:32px;">
+          <div class="stat-card"><div class="stat-label">Total Revenue</div><div class="stat-value" style="font-size:1.5rem;">${fmtCurrency(trends.total_revenue)}</div></div>
+          <div class="stat-card"><div class="stat-label">Admin Profit (${trends.commission_rate}%)</div><div class="stat-value" style="font-size:1.5rem;color:var(--green);">${fmtCurrency(trends.admin_profit)}</div></div>
+          <div class="stat-card"><div class="stat-label">Organizer Earnings</div><div class="stat-value" style="font-size:1.5rem;color:var(--gold);">${fmtCurrency(trends.organizer_earnings)}</div></div>
+          <div class="stat-card"><div class="stat-label">Total Bookings</div><div class="stat-value">${trends.total_bookings}</div></div>
+        </div>
+
+        <!-- Period Selector & Revenue Table -->
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+          <h3 style="font-size:1.2rem;">Revenue Breakdown</h3>
+          <div style="display:flex;gap:6px;">
+            <button class="filter-chip ${analyticsPeriod==='monthly'?'active':''}" onclick="analyticsPeriod='monthly';loadAnalytics()">Monthly</button>
+            <button class="filter-chip ${analyticsPeriod==='quarterly'?'active':''}" onclick="analyticsPeriod='quarterly';loadAnalytics()">Quarterly</button>
+            <button class="filter-chip ${analyticsPeriod==='yearly'?'active':''}" onclick="analyticsPeriod='yearly';loadAnalytics()">Yearly</button>
+          </div>
+        </div>
+
+        ${revenue.data.length ? `
+        <div class="table-wrap" style="margin-bottom:36px;">
+          <table>
+            <thead><tr>
+              <th>Period</th><th>Bookings</th><th>Revenue</th><th>Admin Profit</th><th>Organizer Earnings</th>
+            </tr></thead>
+            <tbody>
+              ${revenue.data.map(r => {
+                let period = '';
+                if (analyticsPeriod === 'yearly') period = `${r.rev_year}`;
+                else if (analyticsPeriod === 'quarterly') period = `Q${r.rev_quarter} ${r.rev_year}`;
+                else period = `${monthNames[r.rev_month]} ${r.rev_year}`;
+
+                return `<tr>
+                  <td style="font-weight:600;">${period}</td>
+                  <td>${r.total_bookings}</td>
+                  <td><strong>${fmtCurrency(r.total_revenue)}</strong></td>
+                  <td style="color:var(--green);">${fmtCurrency(r.admin_profit)}</td>
+                  <td style="color:var(--gold);">${fmtCurrency(r.organizer_earnings)}</td>
+                </tr>`;
+              }).join('')}
+            </tbody>
+          </table>
+        </div>
+        ` : '<p class="text-muted mb-32">No revenue data available yet.</p>'}
+
+        <!-- Sales Trend (mini bar chart) -->
+        ${trends.monthly_trend.length ? `
+        <h3 style="font-size:1.2rem;margin-bottom:16px;">Sales Trend</h3>
+        <div class="trend-chart" style="margin-bottom:36px;">
+          <div style="display:flex;gap:4px;align-items:end;height:140px;padding:0 4px;">
+            ${(() => {
+              const maxRev = Math.max(...trends.monthly_trend.map(m => m.total_revenue || 1));
+              return trends.monthly_trend.map(m => {
+                const h = Math.max(8, (m.total_revenue / maxRev) * 120);
+                return `<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;">
+                  <span style="font-size:0.65rem;color:var(--muted);">${fmtCurrency(m.total_revenue)}</span>
+                  <div style="width:100%;max-width:40px;height:${h}px;background:linear-gradient(to top,var(--gold),rgba(232,201,122,0.4));border-radius:6px 6px 2px 2px;transition:height 0.5s;"></div>
+                  <span style="font-size:0.6rem;color:var(--muted);">${monthNames[m.rev_month]?.slice(0,3)||''}</span>
+                </div>`;
+              }).join('');
+            })()}
+          </div>
+        </div>
+        ` : ''}
+
+        <!-- Revenue by Category & City — side by side -->
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-bottom:36px;">
+          <div>
+            <h3 style="font-size:1.1rem;margin-bottom:12px;">📂 By Category</h3>
+            ${trends.by_category.length ? `
+            <div class="table-wrap">
+              <table>
+                <thead><tr><th>Category</th><th>Bookings</th><th>Revenue</th></tr></thead>
+                <tbody>
+                  ${trends.by_category.map(c => `
+                    <tr>
+                      <td style="font-weight:600;">${categoryEmoji(c.category_name)} ${c.category_name}</td>
+                      <td>${c.total_bookings}</td>
+                      <td><strong style="color:var(--gold);">${fmtCurrency(c.total_revenue)}</strong></td>
+                    </tr>
+                  `).join('')}
+                </tbody>
+              </table>
+            </div>` : '<p class="text-muted">No data</p>'}
+          </div>
+          <div>
+            <h3 style="font-size:1.1rem;margin-bottom:12px;">🏙️ By City</h3>
+            ${trends.by_city.length ? `
+            <div class="table-wrap">
+              <table>
+                <thead><tr><th>City</th><th>Bookings</th><th>Revenue</th></tr></thead>
+                <tbody>
+                  ${trends.by_city.map(c => `
+                    <tr>
+                      <td style="font-weight:600;">${c.city_name}</td>
+                      <td>${c.total_bookings}</td>
+                      <td><strong style="color:var(--gold);">${fmtCurrency(c.total_revenue)}</strong></td>
+                    </tr>
+                  `).join('')}
+                </tbody>
+              </table>
+            </div>` : '<p class="text-muted">No data</p>'}
+          </div>
+        </div>
+
+        <!-- Revenue by Organizer -->
+        <h3 style="font-size:1.1rem;margin-bottom:12px;">👤 Revenue by Organizer</h3>
+        ${orgData.organizers.length ? `
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Organizer</th><th>Bookings</th><th>Total Revenue</th><th>Admin Profit</th><th>Organizer Earnings</th></tr></thead>
+            <tbody>
+              ${orgData.organizers.map(o => `
+                <tr>
+                  <td style="font-weight:600;">${o.organizer_name}</td>
+                  <td>${o.total_bookings}</td>
+                  <td><strong>${fmtCurrency(o.total_revenue)}</strong></td>
+                  <td style="color:var(--green);">${fmtCurrency(o.admin_profit)}</td>
+                  <td style="color:var(--gold);">${fmtCurrency(o.organizer_earnings)}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </div>` : '<p class="text-muted">No data</p>'}
+      `;
+    } catch (err) {
+      wrap.innerHTML = `<div class="empty-state"><div class="empty-state-icon">⚠️</div><h3>Error</h3><p>${err.message}</p></div>`;
+    }
+  }
+
+  // ══════════════════════════════════════════════════════════
+  // COMMISSION SETTINGS
+  // ══════════════════════════════════════════════════════════
+  async function loadCommission() {
+    const wrap = document.getElementById('commission-content');
+    wrap.innerHTML = '<div class="page-loader"><div class="loader"></div></div>';
+
+    try {
+      const [settings, orgData] = await Promise.all([
+        apiFetch('/admin/settings'),
+        apiFetch('/admin/analytics/organizers')
+      ]);
+
+      const rate = parseFloat(settings.commission_rate || 10);
+
+      wrap.innerHTML = `
+        <div class="card" style="max-width:500px;margin-bottom:32px;">
+          <div class="card-body">
+            <h3 style="font-size:1.1rem;margin-bottom:20px;">Platform Commission Rate</h3>
+            <div style="display:flex;align-items:center;gap:16px;margin-bottom:20px;">
+              <div style="position:relative;flex:1;">
+                <input type="number" class="form-input" id="comm-rate-input" value="${rate}" min="0" max="100" step="0.5" style="padding-right:40px;font-size:1.2rem;font-weight:700;" />
+                <span style="position:absolute;right:16px;top:50%;transform:translateY(-50%);color:var(--muted);font-weight:600;">%</span>
+              </div>
+              <button class="btn btn-gold" onclick="updateCommission()">Update</button>
+            </div>
+            <p class="text-muted text-sm">This percentage is deducted from all organizer revenue as platform fee. Changes apply to all future calculations.</p>
+          </div>
+        </div>
+
+        <h3 style="font-size:1.1rem;margin-bottom:12px;">Per-Organizer Earnings Breakdown</h3>
+        ${orgData.organizers.length ? `
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Organizer</th><th>Bookings</th><th>Gross Revenue</th><th>Commission (${rate}%)</th><th>Net to Organizer</th></tr></thead>
+            <tbody>
+              ${orgData.organizers.map(o => `
+                <tr>
+                  <td style="font-weight:600;">${o.organizer_name}</td>
+                  <td>${o.total_bookings}</td>
+                  <td><strong>${fmtCurrency(o.total_revenue)}</strong></td>
+                  <td style="color:var(--red);">− ${fmtCurrency(o.admin_profit)}</td>
+                  <td><strong style="color:var(--gold);">${fmtCurrency(o.organizer_earnings)}</strong></td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </div>` : '<p class="text-muted">No organizer revenue data yet.</p>'}
+      `;
+    } catch (err) {
+      wrap.innerHTML = `<div class="empty-state"><div class="empty-state-icon">⚠️</div><h3>Error</h3><p>${err.message}</p></div>`;
+    }
+  }
+
+  async function updateCommission() {
+    const rate = parseFloat(document.getElementById('comm-rate-input').value);
+    if (isNaN(rate) || rate < 0 || rate > 100) {
+      showToast('Rate must be between 0 and 100.', 'error');
+      return;
+    }
+    try {
+      await apiFetch('/admin/settings/commission', {
+        method: 'PUT',
+        body: JSON.stringify({ commission_rate: rate })
+      });
+      showToast(`Commission updated to ${rate}%`, 'success');
+      loadCommission();
+    } catch (err) {
+      showToast(err.message, 'error');
+    }
+  }
+
+  // ══════════════════════════════════════════════════════════
+  // PAYOUTS
+  // ══════════════════════════════════════════════════════════
+  async function loadAdminPayouts() {
+    const wrap = document.getElementById('admin-payouts-content');
+    wrap.innerHTML = '<div class="page-loader"><div class="loader"></div></div>';
+
+    try {
+      const payouts = await apiFetch('/admin/payouts');
+
+      if (!payouts.length) {
+        wrap.innerHTML = `<div class="empty-state"><div class="empty-state-icon">💰</div><h3>No payout requests yet</h3></div>`;
+        return;
+      }
+
+      const pending = payouts.filter(p => p.status === 'pending');
+      const paid    = payouts.filter(p => p.status === 'paid');
+      const totalPending = pending.reduce((s,p) => s + (p.amount||0), 0);
+      const totalPaid    = paid.reduce((s,p) => s + (p.amount||0), 0);
+
+      wrap.innerHTML = `
+        <div class="stats-grid" style="margin-bottom:28px;">
+          <div class="stat-card"><div class="stat-label">Total Requests</div><div class="stat-value">${payouts.length}</div></div>
+          <div class="stat-card"><div class="stat-label">Pending Amount</div><div class="stat-value" style="font-size:1.4rem;color:var(--gold);">${fmtCurrency(totalPending)}</div></div>
+          <div class="stat-card"><div class="stat-label">Total Paid</div><div class="stat-value" style="font-size:1.4rem;color:var(--green);">${fmtCurrency(totalPaid)}</div></div>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>#</th><th>Organizer</th><th>Email</th><th>Amount</th><th>Status</th><th>Requested</th><th>Paid At</th><th>Actions</th></tr></thead>
+            <tbody>
+              ${payouts.map(p => `
+                <tr>
+                  <td style="color:var(--muted);font-size:0.78rem;">#${p.payout_id}</td>
+                  <td style="font-weight:600;font-size:0.9rem;">${p.organizer_name}</td>
+                  <td style="font-size:0.82rem;color:var(--muted);">${p.organizer_email}</td>
+                  <td><strong style="color:var(--gold);font-family:'Playfair Display',serif;">${fmtCurrency(p.amount)}</strong></td>
+                  <td>${statusPill(p.status)}</td>
+                  <td style="font-size:0.78rem;color:var(--muted);">${fmtDateShort(p.requested_at)}</td>
+                  <td style="font-size:0.78rem;color:var(--muted);">${p.paid_at ? fmtDateShort(p.paid_at) : '—'}</td>
+                  <td>
+                    ${p.status === 'pending' ? `
+                      <div style="display:flex;gap:6px;">
+                        <button class="btn btn-gold btn-sm" onclick="approvePayout(${p.payout_id})">✓ Approve</button>
+                        <button class="btn btn-danger btn-sm" onclick="rejectPayout(${p.payout_id})">✕ Reject</button>
+                      </div>
+                    ` : '<span class="text-muted text-xs">—</span>'}
+                  </td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </div>
+      `;
+    } catch (err) {
+      wrap.innerHTML = `<div class="empty-state"><div class="empty-state-icon">⚠️</div><h3>Error</h3><p>${err.message}</p></div>`;
+    }
+  }
+
+  async function approvePayout(payoutId) {
+    try {
+      await apiFetch(`/admin/payouts/${payoutId}/approve`, { method: 'PUT' });
+      showToast('Payout approved!', 'success');
+      loadAdminPayouts();
+    } catch (err) {
+      showToast(err.message, 'error');
+    }
+  }
+
+  async function rejectPayout(payoutId) {
+    try {
+      await apiFetch(`/admin/payouts/${payoutId}/reject`, { method: 'PUT' });
+      showToast('Payout rejected.', 'info');
+      loadAdminPayouts();
+    } catch (err) {
+      showToast(err.message, 'error');
+    }
+  }
+
+  // ══════════════════════════════════════════════════════════
+  // INIT
+  // ══════════════════════════════════════════════════════════
   loadAllBookings();
 </script>
 </body>

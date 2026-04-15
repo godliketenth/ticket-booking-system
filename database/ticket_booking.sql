@@ -459,5 +459,159 @@ INSERT INTO Review (rating, comment, user_id, event_id) VALUES
 (4, 'Pune Open Mic had some really fresh talent. Will come again.',     16, 16);
 GO
 
-select * from users;
+-- fix_tickets_sold_view.sql
+-- Fixes vw_OrganizerEventStats to calculate tickets_sold from actual
+-- Booking_Item records instead of relying on available_quantity diff.
+-- Run against the existing TicketBookingSystem database.
+
+USE TicketBookingSystem;
+GO
+
+-- Drop and recreate the view
+DROP VIEW IF EXISTS vw_OrganizerEventStats;
+GO
+
+CREATE VIEW vw_OrganizerEventStats AS
+SELECT
+    e.event_id,
+    e.title,
+    e.start_datetime,
+    e.end_datetime,
+    e.status,
+    e.image_url,
+    e.organiser_id,
+    v.venue_name,
+    v.venue_id,
+    c.city_name,
+    c.city_id,
+    ec.category_name,
+    ec.category_id,
+
+    -- total seats from ticket types
+    ISNULL(SUM(tt.total_quantity), 0)         AS total_seats,
+    ISNULL(SUM(tt.available_quantity), 0)      AS remaining_seats,
+
+    -- tickets sold: count from actual booking items (confirmed + pending)
+    ISNULL((
+        SELECT SUM(bi.quantity)
+        FROM Booking b
+        JOIN Booking_Item bi ON b.booking_id = bi.booking_id
+        JOIN Ticket_Type tt2 ON bi.ticket_type_id = tt2.ticket_type_id
+        WHERE tt2.event_id = e.event_id
+          AND b.booking_status IN ('confirmed', 'pending')
+    ), 0) AS tickets_sold,
+
+    -- revenue (only confirmed bookings with completed payments)
+    ISNULL((
+        SELECT SUM(p.paid_amt)
+        FROM Booking b
+        JOIN Payment p ON b.booking_id = p.booking_id
+        WHERE b.event_id = e.event_id
+          AND b.booking_status = 'confirmed'
+          AND p.payment_status = 'completed'
+    ), 0) AS total_revenue
+
+FROM Event e
+JOIN Venue          v  ON e.venue_id    = v.venue_id
+JOIN City           c  ON v.city_id     = c.city_id
+JOIN Event_Category ec ON e.category_id = ec.category_id
+LEFT JOIN Ticket_Type tt ON e.event_id  = tt.event_id
+GROUP BY
+    e.event_id, e.title, e.start_datetime, e.end_datetime,
+    e.status, e.image_url, e.organiser_id,
+    v.venue_name, v.venue_id, c.city_name, c.city_id,
+    ec.category_name, ec.category_id;
+GO
+
+PRINT '=== vw_OrganizerEventStats view fixed ===';
+GO
+
+-- add_indian_cities.sql
+-- Run this against an existing TicketBookingSystem database
+-- to add 64 new cities across India.
+-- Uses a safe INSERT that skips cities that already exist.
+
+USE TicketBookingSystem;
+GO
+
+-- Insert cities only if they don't already exist (uses NOT EXISTS check)
+INSERT INTO City (city_name, state)
+SELECT city_name, state FROM (VALUES
+    ('Chennai',            'Tamil Nadu'),
+    ('Goa',                'Goa'),
+    ('Indore',             'Madhya Pradesh'),
+    ('Bhopal',             'Madhya Pradesh'),
+    ('Patna',              'Bihar'),
+    ('Bhubaneswar',        'Odisha'),
+    ('Guwahati',           'Assam'),
+    ('Dehradun',           'Uttarakhand'),
+    ('Shimla',             'Himachal Pradesh'),
+    ('Ranchi',             'Jharkhand'),
+    ('Raipur',             'Chhattisgarh'),
+    ('Thiruvananthapuram', 'Kerala'),
+    ('Coimbatore',         'Tamil Nadu'),
+    ('Madurai',            'Tamil Nadu'),
+    ('Mysore',             'Karnataka'),
+    ('Mangalore',          'Karnataka'),
+    ('Visakhapatnam',      'Andhra Pradesh'),
+    ('Vijayawada',         'Andhra Pradesh'),
+    ('Nagpur',             'Maharashtra'),
+    ('Nashik',             'Maharashtra'),
+    ('Aurangabad',         'Maharashtra'),
+    ('Surat',              'Gujarat'),
+    ('Vadodara',           'Gujarat'),
+    ('Rajkot',             'Gujarat'),
+    ('Varanasi',           'Uttar Pradesh'),
+    ('Agra',               'Uttar Pradesh'),
+    ('Kanpur',             'Uttar Pradesh'),
+    ('Noida',              'Uttar Pradesh'),
+    ('Ghaziabad',          'Uttar Pradesh'),
+    ('Prayagraj',          'Uttar Pradesh'),
+    ('Gurugram',           'Haryana'),
+    ('Faridabad',          'Haryana'),
+    ('Amritsar',           'Punjab'),
+    ('Ludhiana',           'Punjab'),
+    ('Jalandhar',          'Punjab'),
+    ('Udaipur',            'Rajasthan'),
+    ('Jodhpur',            'Rajasthan'),
+    ('Kota',               'Rajasthan'),
+    ('Jammu',              'Jammu & Kashmir'),
+    ('Srinagar',           'Jammu & Kashmir'),
+    ('Gangtok',            'Sikkim'),
+    ('Shillong',           'Meghalaya'),
+    ('Imphal',             'Manipur'),
+    ('Agartala',           'Tripura'),
+    ('Aizawl',             'Mizoram'),
+    ('Kohima',             'Nagaland'),
+    ('Itanagar',           'Arunachal Pradesh'),
+    ('Dibrugarh',          'Assam'),
+    ('Silchar',            'Assam'),
+    ('Panaji',             'Goa'),
+    ('Navi Mumbai',        'Maharashtra'),
+    ('Thane',              'Maharashtra'),
+    ('Kolhapur',           'Maharashtra'),
+    ('Pondicherry',        'Puducherry'),
+    ('Port Blair',         'Andaman & Nicobar'),
+    ('Daman',              'Dadra & Nagar Haveli and Daman & Diu'),
+    ('Haridwar',           'Uttarakhand'),
+    ('Rishikesh',          'Uttarakhand'),
+    ('Dharamshala',        'Himachal Pradesh'),
+    ('Manali',             'Himachal Pradesh'),
+    ('Tirupati',           'Andhra Pradesh'),
+    ('Warangal',           'Telangana'),
+    ('Hubli',              'Karnataka'),
+    ('Belgaum',            'Karnataka')
+) AS NewCities(city_name, state)
+WHERE NOT EXISTS (
+    SELECT 1 FROM City c
+    WHERE c.city_name = NewCities.city_name
+      AND c.state     = NewCities.state
+);
+
+PRINT '=== Indian cities migration completed ===';
+GO
+
+
+
+select * from users where ;
 select * from Booking;

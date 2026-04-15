@@ -14,6 +14,8 @@ from routes.bookings     import bookings_bp
 from routes.payments     import payments_bp
 from routes.reviews      import reviews_bp
 from routes.sql_explorer import sql_explorer_bp
+from routes.organizer    import organizer_bp
+from routes.admin        import admin_bp
 
 # resolve absolute paths for template and static directories
 BASE_DIR     = os.path.dirname(os.path.abspath(__file__))
@@ -37,6 +39,8 @@ app.register_blueprint(bookings_bp,      url_prefix='/api/bookings')
 app.register_blueprint(payments_bp,      url_prefix='/api/payments')
 app.register_blueprint(reviews_bp,       url_prefix='/api/reviews')
 app.register_blueprint(sql_explorer_bp,  url_prefix='/api/sql-explorer')
+app.register_blueprint(organizer_bp,     url_prefix='/api/organizer')
+app.register_blueprint(admin_bp,         url_prefix='/api/admin')
 
 
 # ── Page Routes (Jinja2 Templates) ──────────────────────────
@@ -114,6 +118,11 @@ def dashboard_page():
 @app.route('/admin.html')
 def admin_page():
     return render_template('admin.html')
+
+
+@app.route('/organizer-dashboard.html')
+def organizer_dashboard_page():
+    return render_template('organizer-dashboard.html')
 
 
 @app.route('/sql-explorer.html')

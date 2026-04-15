@@ -993,3 +993,20 @@ tbody td { padding: 14px 18px; color: var(--text); vertical-align: middle; }
   color: var(--gold);
   border: 1px solid rgba(232,201,122,0.2);
 }
+
+/* ── Additional Status Pills ───────────────────────────────── */
+.status-paid     { background: rgba(78,203,141,0.1);  color: var(--green); }
+.status-rejected { background: rgba(224,82,82,0.1);   color: var(--red); }
+.status-active   { background: rgba(78,203,141,0.1);  color: var(--green); }
+.status-inactive { background: rgba(138,135,144,0.1); color: var(--muted); }
+.status-failed   { background: rgba(224,82,82,0.1);   color: var(--red); }
+.status-ongoing  { background: rgba(78,203,141,0.1);  color: var(--green); }
+
+/* ── Trend Chart ───────────────────────────────────────────── */
+.trend-chart {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 20px 16px;
+  overflow-x: auto;
+}

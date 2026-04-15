@@ -76,6 +76,7 @@ function renderNavbar(activePage = '') {
   ];
   if (user) {
     links.push({ href: 'dashboard.html', label: 'My Bookings' });
+    if (user.role === 'organizer') links.push({ href: 'organizer-dashboard.html', label: '🎯 Organizer' });
     if (user.role === 'admin') links.push({ href: 'admin.html', label: 'Admin' });
   }
 

@@ -1,0 +1,841 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Organizer Dashboard — BookMyShow</title>
+  <link rel="stylesheet" href="static/css/style.css" />
+</head>
+<body>
+
+<nav class="navbar" id="navbar"></nav>
+
+<div class="page-wrap">
+  <div class="container" style="padding-top:32px; padding-bottom:80px;">
+
+    <div class="page-header">
+      <div style="display:flex;align-items:center;gap:12px;">
+        <span style="font-size:1.8rem;">🎯</span>
+        <div>
+          <h1 id="org-page-title">Organizer Dashboard</h1>
+          <p class="text-muted">Manage your events, track revenue and view attendees.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Summary Stats -->
+    <div class="stats-grid" id="org-stats">
+      <div class="stat-card"><div class="stat-label">Total Events</div><div class="stat-value" id="s-events">—</div></div>
+      <div class="stat-card"><div class="stat-label">Tickets Sold</div><div class="stat-value" id="s-sold" style="color:var(--green);">—</div></div>
+      <div class="stat-card"><div class="stat-label">Total Revenue</div><div class="stat-value" id="s-revenue" style="font-size:1.4rem;">—</div></div>
+      <div class="stat-card"><div class="stat-label">Net Earnings</div><div class="stat-value" id="s-net" style="font-size:1.4rem;color:var(--gold);">—</div><div class="stat-sub" id="s-comm-note"></div></div>
+    </div>
+
+    <!-- Tabs -->
+    <div class="tabs">
+      <button class="tab-btn active" onclick="switchOrgTab(this,'my-events')">My Events</button>
+      <button class="tab-btn" onclick="switchOrgTab(this,'create-event')">+ Create Event</button>
+      <button class="tab-btn" onclick="switchOrgTab(this,'earnings')">Earnings</button>
+      <button class="tab-btn" onclick="switchOrgTab(this,'attendees')">Attendees</button>
+      <button class="tab-btn" onclick="switchOrgTab(this,'payouts')">Payouts</button>
+    </div>
+
+    <!-- ═══ Tab: My Events ═══ -->
+    <div id="tab-my-events" class="tab-panel active">
+      <div class="section-header">
+        <h2>My Events</h2>
+        <button class="btn btn-outline btn-sm" onclick="loadMyEvents()">↻ Refresh</button>
+      </div>
+      <div id="my-events-content">
+        <div class="page-loader"><div class="loader"></div></div>
+      </div>
+    </div>
+
+    <!-- ═══ Tab: Create Event ═══ -->
+    <div id="tab-create-event" class="tab-panel">
+      <div class="section-header"><h2>Create New Event</h2></div>
+      <div class="card" style="max-width:780px;">
+        <div class="card-body">
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">Event Title *</label>
+              <input type="text" class="form-input" id="ev-title" placeholder="e.g. Sunset Music Festival" />
+            </div>
+            <div class="form-group">
+              <label class="form-label">Category *</label>
+              <select class="form-select" id="ev-category"><option value="">Select category</option></select>
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Description</label>
+            <textarea class="form-textarea" id="ev-desc" placeholder="Describe your event..."></textarea>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">Start Date & Time *</label>
+              <input type="datetime-local" class="form-input" id="ev-start" />
+            </div>
+            <div class="form-group">
+              <label class="form-label">End Date & Time *</label>
+              <input type="datetime-local" class="form-input" id="ev-end" />
+            </div>
+          </div>
+
+          <!-- Venue Selection -->
+          <div class="form-group">
+            <label class="form-label">Venue *</label>
+            <div style="display:flex;gap:10px;align-items:end;">
+              <select class="form-select" id="ev-venue" style="flex:1;"><option value="">Select venue</option></select>
+              <button class="btn btn-outline btn-sm" onclick="toggleNewVenue()" style="white-space:nowrap;">+ New Venue</button>
+            </div>
+          </div>
+
+          <!-- New Venue Form (hidden by default) -->
+          <div id="new-venue-form" class="hidden" style="background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);padding:20px;margin-bottom:20px;">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+              <h4 style="font-size:1rem;">Add New Venue</h4>
+              <button class="btn btn-ghost btn-sm" onclick="toggleNewVenue()">✕ Close</button>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label class="form-label">Venue Name *</label>
+                <input type="text" class="form-input" id="nv-name" placeholder="e.g. Grand Arena" />
+              </div>
+              <div class="form-group">
+                <label class="form-label">City *</label>
+                <div style="display:flex;gap:10px;align-items:end;">
+                  <select class="form-select" id="nv-city" style="flex:1;"><option value="">Select city</option></select>
+                  <button class="btn btn-outline btn-sm" onclick="toggleNewCity()" style="white-space:nowrap;">+ New City</button>
+                </div>
+              </div>
+
+              <!-- New City Form (hidden by default) -->
+              <div id="new-city-form" class="hidden" style="background:var(--bg2);border:1px dashed var(--border);border-radius:var(--radius);padding:16px;margin-bottom:16px;">
+                <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+                  <h4 style="font-size:0.95rem;">Add New City</h4>
+                  <button class="btn btn-ghost btn-sm" onclick="toggleNewCity()">✕ Close</button>
+                </div>
+                <div class="form-row">
+                  <div class="form-group">
+                    <label class="form-label" style="font-size:0.75rem;">City Name *</label>
+                    <input type="text" class="form-input" id="nc-name" placeholder="e.g. Pune" />
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label" style="font-size:0.75rem;">State *</label>
+                    <input type="text" class="form-input" id="nc-state" placeholder="e.g. Maharashtra" />
+                  </div>
+                </div>
+                <button class="btn btn-outline btn-sm" id="nc-save-btn" onclick="saveNewCity()">Save City</button>
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label class="form-label">Address *</label>
+                <input type="text" class="form-input" id="nv-address" placeholder="Full address" />
+              </div>
+              <div class="form-group">
+                <label class="form-label">Venue Type *</label>
+                <select class="form-select" id="nv-type">
+                  <option value="">Select type</option>
+                  <option value="stadium">Stadium</option>
+                  <option value="theatre">Theatre</option>
+                  <option value="auditorium">Auditorium</option>
+                  <option value="open-air">Open Air</option>
+                  <option value="hall">Hall</option>
+                  <option value="arena">Arena</option>
+                  <option value="other">Other</option>
+                </select>
+              </div>
+            </div>
+            <div class="form-group" style="max-width:220px;">
+              <label class="form-label">Capacity *</label>
+              <input type="number" class="form-input" id="nv-capacity" min="1" placeholder="e.g. 5000" />
+            </div>
+            <button class="btn btn-gold btn-sm" id="nv-save-btn" onclick="saveNewVenue()">Save Venue</button>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Image / Poster URL</label>
+            <input type="text" class="form-input" id="ev-image" placeholder="https://example.com/poster.jpg (optional)" />
+          </div>
+
+          <!-- Ticket Types -->
+          <div style="margin-bottom:20px;">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+              <label class="form-label" style="margin-bottom:0;">Ticket Types *</label>
+              <button class="btn btn-outline btn-sm" onclick="addTicketRow()">+ Add Type</button>
+            </div>
+            <div id="ticket-rows">
+              <div class="ticket-row" style="display:grid;grid-template-columns:2fr 1fr 1fr 40px;gap:10px;margin-bottom:10px;align-items:end;">
+                <div><label class="form-label" style="font-size:0.7rem;">Type Name</label><input type="text" class="form-input tt-name" placeholder="e.g. General" /></div>
+                <div><label class="form-label" style="font-size:0.7rem;">Price (₹)</label><input type="number" class="form-input tt-price" min="0" placeholder="499" /></div>
+                <div><label class="form-label" style="font-size:0.7rem;">Quantity</label><input type="number" class="form-input tt-qty" min="1" placeholder="500" /></div>
+                <div></div>
+              </div>
+            </div>
+          </div>
+
+          <button class="btn btn-gold btn-lg btn-full" id="create-event-btn" onclick="submitCreateEvent()">
+            Create Event
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══ Tab: Earnings ═══ -->
+    <div id="tab-earnings" class="tab-panel">
+      <div class="section-header">
+        <h2>My Earnings</h2>
+        <button class="btn btn-outline btn-sm" onclick="loadEarnings()">↻ Refresh</button>
+      </div>
+      <div id="earnings-content">
+        <div class="page-loader"><div class="loader"></div></div>
+      </div>
+    </div>
+
+    <!-- ═══ Tab: Attendees ═══ -->
+    <div id="tab-attendees" class="tab-panel">
+      <div class="section-header">
+        <h2>Attendees</h2>
+      </div>
+      <div class="form-group" style="max-width:400px;">
+        <label class="form-label">Select Event</label>
+        <select class="form-select" id="att-event-select" onchange="loadAttendees()">
+          <option value="">— Choose an event —</option>
+        </select>
+      </div>
+      <div id="attendees-content">
+        <div class="empty-state"><div class="empty-state-icon">👥</div><h3>Select an event above</h3></div>
+      </div>
+    </div>
+
+    <!-- ═══ Tab: Payouts ═══ -->
+    <div id="tab-payouts" class="tab-panel">
+      <div class="section-header">
+        <h2>Payouts</h2>
+        <button class="btn btn-gold btn-sm" onclick="openPayoutModal()">💰 Request Payout</button>
+      </div>
+      <div id="payouts-content">
+        <div class="page-loader"><div class="loader"></div></div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- Edit Event Modal -->
+<div class="modal-overlay" id="edit-event-modal">
+  <div class="modal" style="max-width:600px;">
+    <div class="modal-header">
+      <h4>Edit Event</h4>
+      <button class="modal-close" onclick="closeModal('edit-event-modal')">✕</button>
+    </div>
+    <div id="edit-event-body"></div>
+  </div>
+</div>
+
+<!-- Payout Request Modal -->
+<div class="modal-overlay" id="payout-modal">
+  <div class="modal">
+    <div class="modal-header">
+      <h4>Request Payout</h4>
+      <button class="modal-close" onclick="closeModal('payout-modal')">✕</button>
+    </div>
+    <p class="text-muted text-sm mb-16">Enter the amount you'd like to withdraw from your earnings.</p>
+    <p class="text-sm mb-16" id="payout-available-text"></p>
+    <div class="form-group">
+      <label class="form-label">Amount (₹)</label>
+      <input type="number" class="form-input" id="payout-amount" min="1" placeholder="Enter amount" />
+    </div>
+    <button class="btn btn-gold btn-full" id="payout-submit-btn" onclick="submitPayoutRequest()">Submit Request</button>
+  </div>
+</div>
+
+<!-- Delete Confirm Modal -->
+<div class="modal-overlay" id="delete-event-modal">
+  <div class="modal">
+    <div class="modal-header">
+      <h4>Delete Event</h4>
+      <button class="modal-close" onclick="closeModal('delete-event-modal')">✕</button>
+    </div>
+    <p style="color:var(--muted);margin-bottom:24px;">Are you sure? This will permanently delete this event and all its ticket types. This cannot be undone.</p>
+    <div style="display:flex;gap:12px;">
+      <button class="btn btn-outline" style="flex:1;" onclick="closeModal('delete-event-modal')">Cancel</button>
+      <button class="btn btn-danger" style="flex:1;" id="confirm-delete-btn">Delete Event</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast-container" id="toast-container"></div>
+
+<script src="static/js/main.js"></script>
+<script>
+  renderNavbar('organizer-dashboard.html');
+
+  const user = Auth.get();
+  if (!user || user.role !== 'organizer') {
+    showToast('Organizer access required.', 'error');
+    setTimeout(() => window.location.href = 'events.html', 1000);
+  } else {
+    document.getElementById('org-page-title').textContent = `Welcome, ${user.full_name.split(' ')[0]} 🎯`;
+  }
+
+  // ── Tab switching ────────────────────────────────────────
+  function switchOrgTab(btn, tabId) {
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById(`tab-${tabId}`).classList.add('active');
+
+    if (tabId === 'my-events')    loadMyEvents();
+    if (tabId === 'create-event') loadFormDropdowns();
+    if (tabId === 'earnings')     loadEarnings();
+    if (tabId === 'attendees')    loadAttendeeEventList();
+    if (tabId === 'payouts')      loadPayouts();
+  }
+
+  // ── Dashboard Stats ─────────────────────────────────────
+  async function loadDashboardStats() {
+    try {
+      const d = await apiFetch('/organizer/dashboard');
+      document.getElementById('s-events').textContent  = d.total_events;
+      document.getElementById('s-sold').textContent    = d.total_sold;
+      document.getElementById('s-revenue').textContent = fmtCurrency(d.total_revenue);
+      document.getElementById('s-net').textContent     = fmtCurrency(d.net_earnings);
+      document.getElementById('s-comm-note').textContent = `After ${d.commission_rate}% commission`;
+    } catch (err) {
+      showToast('Failed to load stats: ' + err.message, 'error');
+    }
+  }
+
+  // ── My Events ───────────────────────────────────────────
+  async function loadMyEvents() {
+    const wrap = document.getElementById('my-events-content');
+    wrap.innerHTML = '<div class="page-loader"><div class="loader"></div></div>';
+    try {
+      const events = await apiFetch('/organizer/events');
+      if (!events.length) {
+        wrap.innerHTML = `<div class="empty-state"><div class="empty-state-icon">🎪</div><h3>No events yet</h3><p>Create your first event using the tab above.</p></div>`;
+        return;
+      }
+
+      wrap.innerHTML = `
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>ID</th><th>Event Title</th><th>Category</th><th>Date</th>
+                <th>Venue</th><th>Status</th><th>Tickets Sold</th>
+                <th>Revenue</th><th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${events.map(e => `
+                <tr>
+                  <td style="color:var(--muted);font-size:0.78rem;">#${e.event_id}</td>
+                  <td>
+                    <div style="font-weight:600;font-size:0.9rem;">${e.title}</div>
+                  </td>
+                  <td><span class="badge badge-gold" style="font-size:0.7rem;">${e.category_name||'—'}</span></td>
+                  <td style="font-size:0.82rem;color:var(--muted);">${fmtDateShort(e.start_datetime)}</td>
+                  <td style="font-size:0.82rem;color:var(--muted);">${e.venue_name||'—'}<br><span style="font-size:0.75rem;">${e.city_name||''}</span></td>
+                  <td>${statusPill(e.status)}</td>
+                  <td style="font-weight:600;">${e.tickets_sold} / ${e.total_seats}</td>
+                  <td><strong style="color:var(--gold);font-family:'Playfair Display',serif;">${fmtCurrency(e.total_revenue)}</strong></td>
+                  <td>
+                    <div style="display:flex;gap:6px;flex-wrap:wrap;">
+                      <button class="btn btn-outline btn-sm" onclick="openEditModal(${e.event_id})">Edit</button>
+                      <button class="btn btn-danger btn-sm" onclick="openDeleteModal(${e.event_id})">Delete</button>
+                    </div>
+                  </td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </div>
+      `;
+    } catch (err) {
+      wrap.innerHTML = `<div class="empty-state"><div class="empty-state-icon">⚠️</div><h3>Error</h3><p>${err.message}</p></div>`;
+    }
+  }
+
+  // ── Create Event Form Dropdowns ─────────────────────────
+  let venuesLoaded = false;
+  async function loadFormDropdowns() {
+    if (venuesLoaded) return;
+    try {
+      const [cats, venues, cities] = await Promise.all([
+        apiFetch('/events/categories'),
+        apiFetch('/organizer/venues'),
+        apiFetch('/events/cities')
+      ]);
+
+      const catSel = document.getElementById('ev-category');
+      cats.forEach(c => {
+        const opt = document.createElement('option');
+        opt.value = c.category_id;
+        opt.textContent = c.category_name;
+        catSel.appendChild(opt);
+      });
+
+      const venSel = document.getElementById('ev-venue');
+      venues.forEach(v => {
+        const opt = document.createElement('option');
+        opt.value = v.venue_id;
+        opt.textContent = `${v.venue_name} — ${v.city_name} (${v.venue_type}, cap: ${v.capacity})`;
+        venSel.appendChild(opt);
+      });
+
+      const citySel = document.getElementById('nv-city');
+      cities.forEach(c => {
+        const opt = document.createElement('option');
+        opt.value = c.city_id;
+        opt.textContent = `${c.city_name}, ${c.state}`;
+        citySel.appendChild(opt);
+      });
+
+      venuesLoaded = true;
+    } catch (_) {}
+  }
+
+  function toggleNewVenue() {
+    document.getElementById('new-venue-form').classList.toggle('hidden');
+  }
+
+  function toggleNewCity() {
+    document.getElementById('new-city-form').classList.toggle('hidden');
+  }
+
+  async function saveNewCity() {
+    const btn = document.getElementById('nc-save-btn');
+    const data = {
+      city_name: document.getElementById('nc-name').value.trim(),
+      state: document.getElementById('nc-state').value.trim()
+    };
+
+    if (!data.city_name || !data.state) {
+      showToast('Please provide both city and state.', 'error');
+      return;
+    }
+
+    btn.disabled = true;
+    btn.innerHTML = '<span class="loader"></span>';
+
+    try {
+      const res = await apiFetch('/organizer/cities/create', {
+        method: 'POST',
+        body: JSON.stringify(data)
+      });
+      showToast(res.message || 'City added.', 'success');
+      toggleNewCity();
+      
+      const sel = document.getElementById('nv-city');
+      const opt = document.createElement('option');
+      opt.value = res.city_id;
+      opt.textContent = `${data.city_name}, ${data.state}`;
+      opt.selected = true;
+      sel.appendChild(opt);
+
+      document.getElementById('nc-name').value = '';
+      document.getElementById('nc-state').value = '';
+    } catch (err) {
+      showToast(err.message, 'error');
+    }
+    btn.disabled = false;
+    btn.textContent = 'Save City';
+  }
+
+  async function saveNewVenue() {
+    const btn = document.getElementById('nv-save-btn');
+    const data = {
+      venue_name: document.getElementById('nv-name').value.trim(),
+      address:    document.getElementById('nv-address').value.trim(),
+      venue_type: document.getElementById('nv-type').value,
+      capacity:   parseInt(document.getElementById('nv-capacity').value) || 0,
+      city_id:    parseInt(document.getElementById('nv-city').value) || 0
+    };
+
+    if (!data.venue_name || !data.address || !data.venue_type || !data.capacity || !data.city_id) {
+      showToast('Please fill all venue fields.', 'error');
+      return;
+    }
+
+    btn.disabled = true;
+    btn.innerHTML = '<span class="loader"></span>';
+    try {
+      const res = await apiFetch('/organizer/venues/create', {
+        method: 'POST',
+        body: JSON.stringify(data)
+      });
+      showToast('Venue created successfully!', 'success');
+      toggleNewVenue();
+
+      // add to dropdown
+      const sel = document.getElementById('ev-venue');
+      const opt = document.createElement('option');
+      opt.value = res.venue_id;
+      opt.textContent = `${data.venue_name} (${data.venue_type}, cap: ${data.capacity})`;
+      opt.selected = true;
+      sel.appendChild(opt);
+
+      // clear form
+      ['nv-name','nv-address','nv-capacity'].forEach(id => document.getElementById(id).value = '');
+      document.getElementById('nv-type').value = '';
+      document.getElementById('nv-city').value = '';
+    } catch (err) {
+      showToast(err.message, 'error');
+    }
+    btn.disabled = false;
+    btn.textContent = 'Save Venue';
+  }
+
+  // ── Ticket Type Rows ────────────────────────────────────
+  function addTicketRow() {
+    const row = document.createElement('div');
+    row.className = 'ticket-row';
+    row.style.cssText = 'display:grid;grid-template-columns:2fr 1fr 1fr 40px;gap:10px;margin-bottom:10px;align-items:end;';
+    row.innerHTML = `
+      <div><input type="text" class="form-input tt-name" placeholder="e.g. VIP" /></div>
+      <div><input type="number" class="form-input tt-price" min="0" placeholder="999" /></div>
+      <div><input type="number" class="form-input tt-qty" min="1" placeholder="100" /></div>
+      <div><button class="btn btn-danger btn-sm btn-icon" onclick="this.closest('.ticket-row').remove()" style="margin-bottom:1px;">✕</button></div>
+    `;
+    document.getElementById('ticket-rows').appendChild(row);
+  }
+
+  // ── Submit Create Event ─────────────────────────────────
+  async function submitCreateEvent() {
+    const btn = document.getElementById('create-event-btn');
+
+    const title       = document.getElementById('ev-title').value.trim();
+    const category_id = parseInt(document.getElementById('ev-category').value) || 0;
+    const description = document.getElementById('ev-desc').value.trim();
+    const start       = document.getElementById('ev-start').value;
+    const end         = document.getElementById('ev-end').value;
+    const venue_id    = parseInt(document.getElementById('ev-venue').value) || 0;
+    const image_url   = document.getElementById('ev-image').value.trim();
+
+    // collect ticket types
+    const rows = document.querySelectorAll('.ticket-row');
+    const ticket_types = [];
+    rows.forEach(r => {
+      const name  = r.querySelector('.tt-name')?.value?.trim();
+      const price = parseFloat(r.querySelector('.tt-price')?.value) || 0;
+      const qty   = parseInt(r.querySelector('.tt-qty')?.value) || 0;
+      if (name && qty > 0) {
+        ticket_types.push({ type_name: name, price: price, quantity: qty });
+      }
+    });
+
+    if (!title || !start || !end || !venue_id || !category_id) {
+      showToast('Please fill all required fields.', 'error');
+      return;
+    }
+    if (!ticket_types.length) {
+      showToast('Add at least one ticket type.', 'error');
+      return;
+    }
+
+    btn.disabled = true;
+    btn.innerHTML = '<span class="loader"></span> Creating...';
+
+    try {
+      const res = await apiFetch('/organizer/events/create', {
+        method: 'POST',
+        body: JSON.stringify({
+          title, description, start_datetime: start, end_datetime: end,
+          venue_id, category_id, image_url, ticket_types
+        })
+      });
+      showToast('Event created successfully! 🎉', 'success');
+
+      // clear form
+      ['ev-title','ev-desc','ev-start','ev-end','ev-image'].forEach(id => document.getElementById(id).value = '');
+      document.getElementById('ev-category').value = '';
+      document.getElementById('ev-venue').value = '';
+      document.getElementById('ticket-rows').innerHTML = `
+        <div class="ticket-row" style="display:grid;grid-template-columns:2fr 1fr 1fr 40px;gap:10px;margin-bottom:10px;align-items:end;">
+          <div><label class="form-label" style="font-size:0.7rem;">Type Name</label><input type="text" class="form-input tt-name" placeholder="e.g. General" /></div>
+          <div><label class="form-label" style="font-size:0.7rem;">Price (₹)</label><input type="number" class="form-input tt-price" min="0" placeholder="499" /></div>
+          <div><label class="form-label" style="font-size:0.7rem;">Quantity</label><input type="number" class="form-input tt-qty" min="1" placeholder="500" /></div>
+          <div></div>
+        </div>`;
+
+      // switch to my events
+      loadDashboardStats();
+      document.querySelectorAll('.tab-btn')[0].click();
+    } catch (err) {
+      showToast(err.message, 'error');
+    }
+    btn.disabled = false;
+    btn.textContent = 'Create Event';
+  }
+
+  // ── Edit Event ──────────────────────────────────────────
+  async function openEditModal(eventId) {
+    const body = document.getElementById('edit-event-body');
+    body.innerHTML = '<div class="page-loader"><div class="loader"></div></div>';
+    openModal('edit-event-modal');
+
+    try {
+      const ev = await apiFetch(`/events/${eventId}`);
+      body.innerHTML = `
+        <div class="form-group">
+          <label class="form-label">Title</label>
+          <input type="text" class="form-input" id="edit-title" value="${ev.title || ''}" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Description</label>
+          <textarea class="form-textarea" id="edit-desc">${ev.description || ''}</textarea>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Status</label>
+            <select class="form-select" id="edit-status">
+              <option value="upcoming" ${ev.status==='upcoming'?'selected':''}>Upcoming</option>
+              <option value="ongoing" ${ev.status==='ongoing'?'selected':''}>Ongoing</option>
+              <option value="completed" ${ev.status==='completed'?'selected':''}>Completed</option>
+              <option value="cancelled" ${ev.status==='cancelled'?'selected':''}>Cancelled</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Image URL</label>
+            <input type="text" class="form-input" id="edit-image" value="${ev.image_url || ''}" />
+          </div>
+        </div>
+        <button class="btn btn-gold btn-full" onclick="submitEditEvent(${eventId})">Save Changes</button>
+      `;
+    } catch (err) {
+      body.innerHTML = `<p class="text-red">${err.message}</p>`;
+    }
+  }
+
+  async function submitEditEvent(eventId) {
+    const data = {
+      title:       document.getElementById('edit-title').value.trim(),
+      description: document.getElementById('edit-desc').value.trim(),
+      status:      document.getElementById('edit-status').value,
+      image_url:   document.getElementById('edit-image').value.trim()
+    };
+
+    try {
+      await apiFetch(`/organizer/events/${eventId}`, {
+        method: 'PUT',
+        body: JSON.stringify(data)
+      });
+      showToast('Event updated!', 'success');
+      closeModal('edit-event-modal');
+      loadMyEvents();
+      loadDashboardStats();
+    } catch (err) {
+      showToast(err.message, 'error');
+    }
+  }
+
+  // ── Delete Event ────────────────────────────────────────
+  function openDeleteModal(eventId) {
+    document.getElementById('confirm-delete-btn').onclick = () => deleteEvent(eventId);
+    openModal('delete-event-modal');
+  }
+
+  async function deleteEvent(eventId) {
+    const btn = document.getElementById('confirm-delete-btn');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="loader"></span>';
+    try {
+      await apiFetch(`/organizer/events/${eventId}`, { method: 'DELETE' });
+      showToast('Event deleted.', 'success');
+      closeModal('delete-event-modal');
+      loadMyEvents();
+      loadDashboardStats();
+    } catch (err) {
+      showToast(err.message, 'error');
+    }
+    btn.disabled = false;
+    btn.textContent = 'Delete Event';
+  }
+
+  // ── Earnings ────────────────────────────────────────────
+  async function loadEarnings() {
+    const wrap = document.getElementById('earnings-content');
+    wrap.innerHTML = '<div class="page-loader"><div class="loader"></div></div>';
+    try {
+      const data = await apiFetch('/organizer/earnings');
+      wrap.innerHTML = `
+        <div class="stats-grid" style="margin-bottom:28px;">
+          <div class="stat-card"><div class="stat-label">Total Revenue</div><div class="stat-value" style="font-size:1.4rem;">${fmtCurrency(data.total_revenue)}</div></div>
+          <div class="stat-card"><div class="stat-label">Commission (${data.commission_rate}%)</div><div class="stat-value" style="font-size:1.4rem;color:var(--red);">− ${fmtCurrency(data.total_commission)}</div></div>
+          <div class="stat-card"><div class="stat-label">Net Earnings</div><div class="stat-value" style="font-size:1.4rem;color:var(--gold);">${fmtCurrency(data.net_earnings)}</div></div>
+        </div>
+        ${data.events.length ? `
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>Event</th><th>Tickets Sold</th><th>Revenue</th><th>Commission</th><th>Net</th></tr>
+            </thead>
+            <tbody>
+              ${data.events.map(e => `
+                <tr>
+                  <td style="font-weight:600;font-size:0.9rem;">${e.title}</td>
+                  <td>${e.tickets_sold || 0} / ${e.total_seats || 0}</td>
+                  <td><strong style="color:var(--text);">${fmtCurrency(e.total_revenue)}</strong></td>
+                  <td style="color:var(--red);">− ${fmtCurrency(e.commission)}</td>
+                  <td><strong style="color:var(--gold);">${fmtCurrency(e.net_earnings)}</strong></td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </div>` : '<div class="empty-state"><h3>No earnings yet</h3></div>'}
+      `;
+    } catch (err) {
+      wrap.innerHTML = `<div class="empty-state"><div class="empty-state-icon">⚠️</div><h3>Error</h3><p>${err.message}</p></div>`;
+    }
+  }
+
+  // ── Attendees ───────────────────────────────────────────
+  async function loadAttendeeEventList() {
+    try {
+      const events = await apiFetch('/organizer/events');
+      const sel = document.getElementById('att-event-select');
+      sel.innerHTML = '<option value="">— Choose an event —</option>';
+      events.forEach(e => {
+        const opt = document.createElement('option');
+        opt.value = e.event_id;
+        opt.textContent = `${e.title} (${fmtDateShort(e.start_datetime)})`;
+        sel.appendChild(opt);
+      });
+    } catch (_) {}
+  }
+
+  async function loadAttendees() {
+    const eventId = document.getElementById('att-event-select').value;
+    const wrap = document.getElementById('attendees-content');
+    if (!eventId) {
+      wrap.innerHTML = '<div class="empty-state"><div class="empty-state-icon">👥</div><h3>Select an event above</h3></div>';
+      return;
+    }
+
+    wrap.innerHTML = '<div class="page-loader"><div class="loader"></div></div>';
+    try {
+      const attendees = await apiFetch(`/organizer/events/${eventId}/attendees`);
+      if (!attendees.length) {
+        wrap.innerHTML = '<div class="empty-state"><div class="empty-state-icon">👥</div><h3>No attendees yet</h3><p>No bookings for this event.</p></div>';
+        return;
+      }
+
+      wrap.innerHTML = `
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>Attendee</th><th>Email</th><th>Ticket Type</th><th>Qty</th><th>Amount</th><th>Payment</th><th>Booked On</th></tr>
+            </thead>
+            <tbody>
+              ${attendees.map(a => `
+                <tr>
+                  <td style="font-weight:600;font-size:0.9rem;">${a.attendee_name}</td>
+                  <td style="font-size:0.82rem;color:var(--muted);">${a.attendee_email}</td>
+                  <td><span class="badge badge-gold" style="font-size:0.7rem;">${a.ticket_type}</span></td>
+                  <td>${a.quantity}</td>
+                  <td><strong style="color:var(--gold);">${fmtCurrency(a.total_amt)}</strong></td>
+                  <td>${a.payment_status ? statusPill(a.payment_status) : '<span class="text-muted">—</span>'}</td>
+                  <td style="font-size:0.78rem;color:var(--muted);">${fmtDateShort(a.booking_datetime)}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </div>
+      `;
+    } catch (err) {
+      wrap.innerHTML = `<div class="empty-state"><div class="empty-state-icon">⚠️</div><h3>Error</h3><p>${err.message}</p></div>`;
+    }
+  }
+
+  // ── Payouts ─────────────────────────────────────────────
+  let payoutAvailable = 0;
+
+  async function loadPayouts() {
+    const wrap = document.getElementById('payouts-content');
+    wrap.innerHTML = '<div class="page-loader"><div class="loader"></div></div>';
+    try {
+      const [payouts, dash] = await Promise.all([
+        apiFetch('/organizer/payouts'),
+        apiFetch('/organizer/dashboard')
+      ]);
+
+      const totalPaidOrPending = payouts
+        .filter(p => p.status === 'paid' || p.status === 'pending')
+        .reduce((s, p) => s + (p.amount || 0), 0);
+      payoutAvailable = dash.net_earnings - totalPaidOrPending;
+
+      const totalPaid    = payouts.filter(p => p.status === 'paid').reduce((s,p) => s + (p.amount||0), 0);
+      const totalPending = payouts.filter(p => p.status === 'pending').reduce((s,p) => s + (p.amount||0), 0);
+
+      wrap.innerHTML = `
+        <div class="stats-grid" style="margin-bottom:28px;">
+          <div class="stat-card"><div class="stat-label">Available Balance</div><div class="stat-value" style="font-size:1.4rem;color:var(--gold);">${fmtCurrency(payoutAvailable)}</div></div>
+          <div class="stat-card"><div class="stat-label">Pending Payouts</div><div class="stat-value" style="font-size:1.4rem;color:var(--gold);">${fmtCurrency(totalPending)}</div></div>
+          <div class="stat-card"><div class="stat-label">Total Paid Out</div><div class="stat-value" style="font-size:1.4rem;color:var(--green);">${fmtCurrency(totalPaid)}</div></div>
+        </div>
+        ${payouts.length ? `
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>#</th><th>Amount</th><th>Status</th><th>Requested</th><th>Paid At</th></tr></thead>
+            <tbody>
+              ${payouts.map(p => `
+                <tr>
+                  <td style="color:var(--muted);font-size:0.78rem;">#${p.payout_id}</td>
+                  <td><strong style="color:var(--gold);font-family:'Playfair Display',serif;">${fmtCurrency(p.amount)}</strong></td>
+                  <td>${statusPill(p.status)}</td>
+                  <td style="font-size:0.82rem;color:var(--muted);">${fmtDateShort(p.requested_at)}</td>
+                  <td style="font-size:0.82rem;color:var(--muted);">${p.paid_at ? fmtDateShort(p.paid_at) : '—'}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </div>` : '<div class="empty-state"><h3>No payout requests yet</h3></div>'}
+      `;
+    } catch (err) {
+      wrap.innerHTML = `<div class="empty-state"><div class="empty-state-icon">⚠️</div><h3>Error</h3><p>${err.message}</p></div>`;
+    }
+  }
+
+  function openPayoutModal() {
+    document.getElementById('payout-available-text').innerHTML =
+      `Available balance: <strong style="color:var(--gold)">${fmtCurrency(payoutAvailable)}</strong>`;
+    document.getElementById('payout-amount').value = '';
+    openModal('payout-modal');
+  }
+
+  async function submitPayoutRequest() {
+    const amount = parseFloat(document.getElementById('payout-amount').value) || 0;
+    const btn = document.getElementById('payout-submit-btn');
+
+    if (amount <= 0) {
+      showToast('Enter a valid amount.', 'error');
+      return;
+    }
+
+    btn.disabled = true;
+    btn.innerHTML = '<span class="loader"></span> Processing...';
+
+    try {
+      await apiFetch('/organizer/payouts/request', {
+        method: 'POST',
+        body: JSON.stringify({ amount })
+      });
+      showToast('Payout request submitted!', 'success');
+      closeModal('payout-modal');
+      loadPayouts();
+    } catch (err) {
+      showToast(err.message, 'error');
+    }
+    btn.disabled = false;
+    btn.textContent = 'Submit Request';
+  }
+
+  // ── Init ────────────────────────────────────────────────
+  loadDashboardStats();
+  loadMyEvents();
+</script>
+</body>
+</html>
